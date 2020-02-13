@@ -32,7 +32,7 @@
 
 #ifndef HOOKING_H
 #define HOOKING_H
-HANDLE open_monitored_file(std::string);
+HANDLE open_monitored_file(std::wstring);
 #endif
 
 #define LET_ALL_PROCS_OPEN (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
@@ -44,5 +44,5 @@ HANDLE open_monitored_file(std::string);
 								FILE_NOTIFY_CHANGE_LAST_ACCESS |\
 								FILE_NOTIFY_CHANGE_CREATION	   |\
 								FILE_NOTIFY_CHANGE_SECURITY
-#define MONITER_FOLDER(buf, file, watch_subtree, overlapped) ReadDirectoryChangesW(file, buf,sizeof(buf),(BOOL)watch_subtree,FILE_NOTIFY_ALL_CUSTOM,NULL,&overlapped,NULL)
+#define MONITER_FOLDER(buf, file, watch_subtree, overlapped) ReadDirectoryChangesW(file, &buf[0],sizeof(buf),(BOOL)watch_subtree,FILE_NOTIFY_ALL_CUSTOM,NULL,&overlapped,NULL)
 

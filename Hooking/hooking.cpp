@@ -12,13 +12,13 @@
 
 */
 
-HANDLE open_monitored_file(std::string PathName) {
+HANDLE open_monitored_file(std::wstring PathName) {
 	HANDLE file;
 	// std::replace(FileName.begin(), FileName.end(), '\\', '/');
-	std::cout << PathName << std::endl;
-	if (PathName.back() == '\\') {
-		std::cout << "Opened directory: " << PathName << std::endl;
-		file = CreateFileA(
+	std::wcout << PathName << std::endl;
+	if (PathName.back() == L'\\') {
+		std::wcout << L"Opened directory: " << PathName << std::endl;
+		file = CreateFileW(
 			PathName.c_str(),					// File name
 			FILE_LIST_DIRECTORY,				// Open as directory
 			LET_ALL_PROCS_OPEN,					// Allow other processes to interact with this folder
@@ -29,8 +29,8 @@ HANDLE open_monitored_file(std::string PathName) {
 		);
 	}
 	else {
-		std::cout << "Opened file: " << PathName << std::endl;
-		file = CreateFileA(
+		std::wcout << L"Opened file: " << PathName << std::endl;
+		file = CreateFileW(
 			PathName.c_str(),					// File name
 			GENERIC_READ,						// Open as directory
 			LET_ALL_PROCS_OPEN,					// Allow other processes to interact with this folder
@@ -40,7 +40,7 @@ HANDLE open_monitored_file(std::string PathName) {
 			NULL								// Ignored when opening file
 		);
 	}
-	std::cout << "Error: " << std::to_string(GetLastError()) << std::endl;
+	std::wcout << L"Error: " << std::to_wstring(GetLastError()) << std::endl;
 	return file;
 }
 
