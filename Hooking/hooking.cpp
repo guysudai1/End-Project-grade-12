@@ -2,17 +2,7 @@
 //
 #include "hooking.h"
 #include <algorithm>
-#define LET_ALL_PROCS_OPEN (FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE)
-#define FILE_NOTIFY_ALL_CUSTOM  FILE_NOTIFY_CHANGE_FILE_NAME   |\
-							    FILE_NOTIFY_CHANGE_DIR_NAME    |\
-								FILE_NOTIFY_CHANGE_ATTRIBUTES  |\
-								FILE_NOTIFY_CHANGE_SIZE		   |\
-								FILE_NOTIFY_CHANGE_LAST_WRITE  |\
-								FILE_NOTIFY_CHANGE_LAST_ACCESS |\
-								FILE_NOTIFY_CHANGE_CREATION	   |\
-								FILE_NOTIFY_CHANGE_SECURITY
 
-#define MONITER_FOLDER(file, watch_subtree) ReadDirectoryChangesExW(file,buf,sizeof(buf),watch_subtree,FILE_NOTIFY_ALL_CUSTOM,NULL,NULL,NULL,NULL)
 
 /*
 	PARAMETERS: 
@@ -54,11 +44,11 @@ HANDLE open_monitored_file(std::string PathName) {
 	return file;
 }
 
-BOOL monitor_folder(HANDLE file) {
-	return ReadDirectoryChangesExW(
-		file,
-
-	)
+BOOL monitor_folder(HANDLE file, bool watch_subtree) {
+	return false;
+	//return ReadDirectoryChangesExW(
+	//	file
+	//	);
 }
 
 // Run program: Ctrl + F5 or Debug > Start Without Debugging menu
