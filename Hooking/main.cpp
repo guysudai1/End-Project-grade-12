@@ -4,9 +4,11 @@
 #include <fcntl.h>
 #define UNICODE 1
 #include <windows.h>
+#include "main.h"
 
 int main()
 {
+	/*
 	_setmode(_fileno(stdout), _O_U8TEXT);
 	std::wstring file_monitor;
 	std::wcout << L"Starting..." << std::endl;
@@ -37,5 +39,12 @@ int main()
 	} while (info->NextEntryOffset > 0);
 
 	CloseHandle(file);
+	*/
+	std::wcout << L"hey" << std::endl;
+	char hey[4] = "hey";
+	char wtf[4] = "wtf";
+	hash_map<char*, char*>* map = new hash_map<char*, char*>(10000);
+	map->put(hey, wtf);
+	std::wcout << "hello there" << std::endl;
 	return 0; 
 }	

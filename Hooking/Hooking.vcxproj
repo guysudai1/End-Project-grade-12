@@ -156,6 +156,7 @@
   <ItemGroup>
     <ClInclude Include="hooking.h" />
     <ClInclude Include="hashmap.h" />
+    <ClInclude Include="main.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hashmap.cpp">
