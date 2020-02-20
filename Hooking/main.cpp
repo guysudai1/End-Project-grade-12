@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #define UNICODE 1
 #include <windows.h>
-#include "main.h"
 
 int main()
 {
@@ -41,10 +40,10 @@ int main()
 	CloseHandle(file);
 	*/
 	std::wcout << L"hey" << std::endl;
-	char hey[4] = "hey";
-	char wtf[4] = "wtf";
-	hash_map<char*, char*>* map = new hash_map<char*, char*>(10000);
-	map->put(hey, wtf);
-	std::wcout << "hello there" << std::endl;
+	std::wstring key(L"aaaassssssssssssss");
+	std::wstring value(L"blablablabla");
+	hash_map<std::wstring, std::wstring>* map = new hash_map<std::wstring, std::wstring>(10000);
+	map->put(key, value);
+	std::wcout << map->get_value(key) << std::endl;
 	return 0; 
 }	
