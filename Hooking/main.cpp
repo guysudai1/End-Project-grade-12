@@ -39,11 +39,14 @@ int main()
 
 	CloseHandle(file);
 	*/
+
 	std::wcout << L"hey" << std::endl;
-	std::wstring key(L"aaaassssssssssssss");
-	std::wstring value(L"blablablabla");
-	hash_map<std::wstring, std::wstring>* map = new hash_map<std::wstring, std::wstring>(10000);
+	const wchar_t* key = L"ddddddsa ";
+	const wchar_t* value = L"dsadsa";
+
+	hash_map* map = new hash_map(10000);
 	map->put(key, value);
+	std::wcout << key << std::endl;
 	std::wcout << map->get_value(key) << std::endl;
 	return 0; 
 }	
