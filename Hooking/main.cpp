@@ -1,5 +1,6 @@
 #include "hooking.h"
 #include "hashmap.h"
+#include "sha256.h"
 #include <io.h>
 #include <fcntl.h>
 #define UNICODE 1
@@ -41,12 +42,21 @@ int main()
 	*/
 
 	std::wcout << L"hey" << std::endl;
-	const wchar_t* key = L"ddddddsa ";
-	const wchar_t* value = L"dsadsa";
+	wchar_t* key = (wchar_t*)L"ddddddsa";
+	std::wstring value(L"dsadsa");
+	char buf[1000] = { 0 };
+	
+	int ret = std::wcstombs(buf, key, sizeof(buf));
+	if (ret == 1000) buf[999] = '\0';
+	std::string hash_this(buf, 0, strlen(buf));
 
 	hash_map* map = new hash_map(10000);
-	map->put(key, value);
+	
 	std::wcout << key << std::endl;
 	std::wcout << map->get_value(key) << std::endl;
+
+	std::string _ = sha256(hash_this);
+	std::wstring encoded(_.begin(), _.end());
+	
 	return 0; 
 }	

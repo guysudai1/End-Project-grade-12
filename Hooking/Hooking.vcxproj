@@ -104,7 +104,7 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>
       </PrecompiledHeaderFile>
@@ -159,6 +159,7 @@
   <ItemGroup>
     <ClInclude Include="hooking.h" />
     <ClInclude Include="hashmap.h" />
+    <ClInclude Include="sha256.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="hashmap.cpp">
@@ -175,6 +176,7 @@
       </PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="sha256.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
