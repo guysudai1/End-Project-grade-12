@@ -45,4 +45,3 @@ HANDLE open_monitored_file(std::wstring);
 								FILE_NOTIFY_CHANGE_CREATION	   |\
 								FILE_NOTIFY_CHANGE_SECURITY
 #define MONITER_FOLDER(buf, file, watch_subtree, overlapped) ReadDirectoryChangesW(file, &buf[0],sizeof(buf),(BOOL)watch_subtree,FILE_NOTIFY_ALL_CUSTOM,NULL,&overlapped,NULL)
-

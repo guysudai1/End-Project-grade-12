@@ -40,7 +40,7 @@ int main()
 
 	CloseHandle(file);
 	*/
-
+	
 	std::wcout << L"hey" << std::endl;
 	wchar_t* key = (wchar_t*)L"ddddddsa";
 	std::wstring value(L"dsadsa");
@@ -55,8 +55,9 @@ int main()
 	std::wcout << key << std::endl;
 	std::wcout << map->get_value(key) << std::endl;
 
-	std::string _ = sha256(hash_this);
+	std::string _ = sha256((unsigned char*) buf, strlen(buf));
 	std::wstring encoded(_.begin(), _.end());
 	
+	hook_folder(L"C:/Users/USER11/Desktop/End-Project-grade-12-master/weird_folder/", map, true);
 	return 0; 
 }	
