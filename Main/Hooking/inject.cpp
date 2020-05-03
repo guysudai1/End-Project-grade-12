@@ -28,7 +28,7 @@ void inject_to_process(DWORD pid, std::wstring dllpath) {
 								pid
 							);
 	if (hProc == NULL) {
-		MessageBoxA(NULL, "Could not open process", get_string_error().c_str(), MB_ICONERROR);
+		MessageBoxA(NULL,  get_string_error().c_str(), "Could not open process", MB_ICONERROR);
         return;
 	}
 
@@ -36,11 +36,11 @@ void inject_to_process(DWORD pid, std::wstring dllpath) {
     hBase = VirtualAllocEx(hProc, 
                            NULL,
                            dllpath.size() * sizeof(wchar_t),
-                           0,
+                           MEM_RESERVE | MEM_COMMIT,
                            PAGE_EXECUTE_READWRITE
                            );
     if (hBase == NULL) {
-        MessageBoxA(NULL, "Could not allocate enough memory", get_string_error().c_str(), MB_ICONERROR);
+        MessageBoxA(NULL, get_string_error().c_str(), "Could not allocate enough memory", MB_ICONERROR);
         return;
     }
 
@@ -52,13 +52,13 @@ void inject_to_process(DWORD pid, std::wstring dllpath) {
                             dllpath.size() * sizeof(wchar_t),
                             &writtenBytes
                            )) {
-        MessageBoxA(NULL, "Could not write to memory", get_string_error().c_str(), MB_ICONERROR);
+        MessageBoxA(NULL, get_string_error().c_str(), "Could not write to memory", MB_ICONERROR);
         return;
     }
 
     HMODULE loadLibrary = (HMODULE)GetProcAddress(LoadLibraryA("kernel32.dll"), "LoadLibraryW");
     if (loadLibrary == NULL) {
-        MessageBoxA(NULL, "Could not get LoadLibraryW address", get_string_error().c_str(), MB_ICONERROR);
+        MessageBoxA(NULL, get_string_error().c_str(), "Could not get LoadLibraryW address", MB_ICONERROR);
         return;
     }
 
@@ -72,7 +72,7 @@ void inject_to_process(DWORD pid, std::wstring dllpath) {
                                         NULL
                                         );
     if (hThread == NULL) {
-        MessageBoxA(NULL, "Could not get create remote thread", get_string_error().c_str(), MB_ICONERROR);
+        MessageBoxA(NULL, get_string_error().c_str(), "Could not get create remote thread", MB_ICONERROR);
         return;
     }
 }

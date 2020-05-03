@@ -1,7 +1,2 @@
-﻿  graphics.cpp
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(162,8): warning C4101: 'low': unreferenced local variable
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(161,41): warning C4101: 'openDir': unreferenced local variable
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(161,78): warning C4101: 'existingProcess': unreferenced local variable
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(161,63): warning C4101: 'launchProcess': unreferenced local variable
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(275): warning C4715: 'OnEvent': not all control paths return a value
+﻿  inject.cpp
   Hooking.vcxproj -> C:\Users\sudai\source\repos\End-Project-grade-12\Main\x64\Debug\Main.exe
