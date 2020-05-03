@@ -2,6 +2,7 @@
 #include <shobjidl.h> 
 #include "graphics.h"
 #include "hashmap.h"
+#include "inject.h"
 
 #define WIDTH   500
 #define HEIGHT  500
@@ -198,7 +199,7 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 						return -1;
 					}
 
-					StartProcess(L"C:\\Users\\GUY\\Desktop\\End-Project-grade-12-master\\x64\\Debug\\stub.exe", path);
+					StartProcess(L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\Stub\\stub.exe", path);
 
 					while (!connected && pipe != INVALID_HANDLE_VALUE)
 					{
@@ -222,6 +223,7 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 					}
 
 					child_pid = std::stoi(std::string(buf));
+					inject_to_process(child_pid, L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\DLL\\file_hooker.dll");
 					MessageBoxA(NULL, "Child PID", std::string(buf).c_str(), 0);
 					break;
 
