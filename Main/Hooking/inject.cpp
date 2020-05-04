@@ -75,4 +75,11 @@ void inject_to_process(DWORD pid, std::wstring dllpath) {
         MessageBoxA(NULL, get_string_error().c_str(), "Could not get create remote thread", MB_ICONERROR);
         return;
     }
+    CloseHandle(hProc);
+}
+
+void resume_process(DWORD thread_pid) {
+    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread_pid);
+    ResumeThread(hThread);
+    CloseHandle(hThread);
 }

@@ -157,9 +157,10 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 						UINT uMsg,
 						WPARAM wParam,
 						LPARAM lParam) {
-	HANDLE pipe;
+	HANDLE hPipe;
 	HMENU generalMenu, fileMenu, openMenu, openDir, processMenu, launchProcess, existingProcess;
-	DWORD low, read_amount, child_pid;
+	DWORD low, read_amount, child_pid, thread_pid;
+	std::string str_buf;
 	bool connected = false;
 	char buf[1024];
 	std::wstring path;
@@ -184,7 +185,7 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 					// Close Stub.exe and child.exe is not a child of hooking.exe anymore
 					SelectFile(&path);
 					// Named pipe for getting the process PID
-					pipe = CreateNamedPipeA("\\\\.\\pipe\\get_child_pid",
+					hPipe = CreateNamedPipeA("\\\\.\\pipe\\get_child_pid",
 						PIPE_ACCESS_INBOUND,
 						PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
 						1,
@@ -193,7 +194,7 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 						NMPWAIT_USE_DEFAULT_WAIT,
 						NULL);
 					
-					if (pipe == INVALID_HANDLE_VALUE)
+					if (hPipe == INVALID_HANDLE_VALUE)
 					{
 						MessageBoxA(NULL, "CreateNamedPipe failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
 						return -1;
@@ -201,11 +202,11 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 
 					StartProcess(L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\Stub\\stub.exe", path);
 
-					while (!connected && pipe != INVALID_HANDLE_VALUE)
+					while (!connected && hPipe != INVALID_HANDLE_VALUE)
 					{
-						if (ConnectNamedPipe(pipe, NULL) != FALSE)   // wait for someone to connect to the pipe
+						if (ConnectNamedPipe(hPipe, NULL) != FALSE)   // wait for someone to connect to the pipe
 						{
-							while (ReadFile(pipe, buf, sizeof(buf) - 1, &read_amount, NULL) != FALSE)
+							while (ReadFile(hPipe, buf, sizeof(buf) - 1, &read_amount, NULL) != FALSE)
 							{
 								/* add terminating zero */
 								buf[read_amount] = '\0';
@@ -213,18 +214,21 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 							}
 						}
 
-						DisconnectNamedPipe(pipe);
+						DisconnectNamedPipe(hPipe);
 					}
-
+	
+					CloseHandle(hPipe);
 					
 					if (std::string(buf).compare("Error") == 0) {
 						MessageBoxA(NULL, "Launching process failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
 						return -1;
 					}
-
-					child_pid = std::stoi(std::string(buf));
+					str_buf = std::string(buf);
+					child_pid = std::stoi(str_buf.substr(0,str_buf.find('-')));
+					thread_pid = std::stoi(str_buf.substr(str_buf.find('-') + 1, str_buf.length() - str_buf.find('-')));
 					inject_to_process(child_pid, L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\DLL\\file_hooker.dll");
-					MessageBoxA(NULL, "Child PID", std::string(buf).c_str(), 0);
+					resume_process(thread_pid);
+					// MessageBoxA(NULL, "Child PID", std::string(buf).c_str(), 0);
 					break;
 
 				case SELECT_EXISTING_PROCESS:

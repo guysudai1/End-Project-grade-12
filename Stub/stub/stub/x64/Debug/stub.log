@@ -1,0 +1,3 @@
+﻿  stub.cpp
+C:\Users\sudai\source\repos\End-Project-grade-12\Stub\stub\stub\stub.cpp(98,1): warning C4267: 'argument': conversion from 'size_t' to 'DWORD', possible loss of data
+  stub.vcxproj -> C:\Users\sudai\source\repos\End-Project-grade-12\Stub\stub\x64\Debug\stub.exe
