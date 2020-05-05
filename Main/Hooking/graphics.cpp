@@ -4,6 +4,7 @@
 #include "hashmap.h"
 #include "inject.h"
 
+
 #define WIDTH   500
 #define HEIGHT  500
 #define X		500
@@ -15,43 +16,12 @@
 #define SELECT_LAUNCH_PROCESS 3
 #define SELECT_EXISTING_PROCESS 4
 
-hash_map* my_map;
 
-class CReceiver {
-public:
-	void InputBox(std::string nValue) {
-		MessageBoxA(NULL, "Handler", nValue.c_str(), 0);
-	}
-};
-
-VOID StartProcess(std::wstring application_name, std::wstring child_process)
-{
-	// additional information
-	STARTUPINFO si;
-	PROCESS_INFORMATION pi;
-
-	// set the size of the structures
-	ZeroMemory(&si, sizeof(si));
-	si.cb = sizeof(si);
-	ZeroMemory(&pi, sizeof(pi));
-
-	// start the program up
-	CreateProcess(application_name.c_str(),   // the path
-		(LPWSTR)((application_name + L"\"" + child_process + L"\"").c_str()),        // Command line
-		NULL,           // Process handle not inheritable
-		NULL,           // Thread handle not inheritable
-		FALSE,          // Set handle inheritance to FALSE
-		0,              // No creation flags
-		NULL,           // Use parent's environment block
-		NULL,           // Use parent's starting directory 
-		&si,            // Pointer to STARTUPINFO structure
-		&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-	);
-	// Close process and thread handles. 
-	CloseHandle(pi.hProcess);
-	CloseHandle(pi.hThread);
-}
-
+/*
+Create menus for selecting files / directory
+-> SelectDir: Select directory to track
+-> SelectFile: Select exe to launch and track
+*/
 void SelectDir(std::wstring* path) {
 	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
 		COINIT_DISABLE_OLE1DDE);
@@ -103,7 +73,6 @@ void SelectDir(std::wstring* path) {
 	}
 
 }
-
 void SelectFile(std::wstring* path) {
 	HRESULT hr = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED |
 		COINIT_DISABLE_OLE1DDE);
@@ -153,30 +122,26 @@ void SelectFile(std::wstring* path) {
 
 }
 
-LRESULT CALLBACK OnEvent(HWND wnd,
-						UINT uMsg,
-						WPARAM wParam,
-						LPARAM lParam) {
-	HANDLE hPipe;
-	HMENU generalMenu, fileMenu, openMenu, openDir, processMenu, launchProcess, existingProcess;
-	DWORD low, read_amount, child_pid, thread_pid;
-	std::string str_buf;
-	bool connected = false;
-	char buf[1024];
+LRESULT CALLBACK OnEvent(HWND wnd, UINT uMsg,
+						WPARAM wParam, LPARAM lParam) {
+
+	PIDStruct childPID;
+	HMENU generalMenu, fileMenu, openMenu, processMenu;
+	
 	std::wstring path;
 	switch (uMsg) {
 		case WM_CLOSE:
-			// MessageBoxW(wnd, L"Closing window...", L"Close", 0);
 			DestroyWindow(wnd);
 			break;
 		case WM_COMMAND:
 			switch (LOWORD(wParam)) {
 				case SELECT_DIR_MENU:
+					// Hooks user chosen directory
 					SelectDir(&path);
-					// capture_folder(path, my_map, true);
 					hook_folder(path);
 					break;
 				case TYPE_DIR_MENU:
+					// TODO: Implement manually typing directory (or not idk)
 					MessageBox(NULL, L"Type dir", L"Type dir", 0);
 					break;
 
@@ -184,54 +149,17 @@ LRESULT CALLBACK OnEvent(HWND wnd,
 					// Hooking.exe -> Stub.exe -> Child.exe
 					// Close Stub.exe and child.exe is not a child of hooking.exe anymore
 					SelectFile(&path);
+
 					// Named pipe for getting the process PID
-					hPipe = CreateNamedPipeA("\\\\.\\pipe\\get_child_pid",
-						PIPE_ACCESS_INBOUND,
-						PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-						1,
-						1024,
-						1024,
-						NMPWAIT_USE_DEFAULT_WAIT,
-						NULL);
-					
-					if (hPipe == INVALID_HANDLE_VALUE)
-					{
-						MessageBoxA(NULL, "CreateNamedPipe failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
-						return -1;
+					if (launch_process(path, &childPID) == FALSE) {
+						MessageBoxW(NULL, L"Could not launch process due to an error in the launch_process function in inject.cpp", L"Launch process error", MB_ICONERROR);
 					}
 
-					StartProcess(L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\Stub\\stub.exe", path);
-
-					while (!connected && hPipe != INVALID_HANDLE_VALUE)
-					{
-						if (ConnectNamedPipe(hPipe, NULL) != FALSE)   // wait for someone to connect to the pipe
-						{
-							while (ReadFile(hPipe, buf, sizeof(buf) - 1, &read_amount, NULL) != FALSE)
-							{
-								/* add terminating zero */
-								buf[read_amount] = '\0';
-								connected = true;
-							}
-						}
-
-						DisconnectNamedPipe(hPipe);
-					}
-	
-					CloseHandle(hPipe);
-					
-					if (std::string(buf).compare("Error") == 0) {
-						MessageBoxA(NULL, "Launching process failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
-						return -1;
-					}
-					str_buf = std::string(buf);
-					child_pid = std::stoi(str_buf.substr(0,str_buf.find('-')));
-					thread_pid = std::stoi(str_buf.substr(str_buf.find('-') + 1, str_buf.length() - str_buf.find('-')));
-					inject_to_process(child_pid, L"C:\\Users\\sudai\\source\\repos\\End-Project-grade-12\\DLL\\file_hooker.dll");
-					resume_process(thread_pid);
-					// MessageBoxA(NULL, "Child PID", std::string(buf).c_str(), 0);
+					wait_for_injection_and_resume(&childPID);
 					break;
 
 				case SELECT_EXISTING_PROCESS:
+					// TODO: Allow selection of existing process
 					break;
 			}
 			break;
@@ -318,16 +246,8 @@ HWND generate_window(HINSTANCE hInstance,
 	return hWnd;
 }
 
-// void create_menu(sf::RenderWindow* wnd) {
-//	HWND windows_handle = wnd->getSystemHandle();
-// }
-
-void run_forever(HINSTANCE hInstance, 
-				HINSTANCE hPrevInstance,
-				LPSTR lpCmdLine, 
-				int nCmdShow,
-				hash_map* map) {
-	my_map = map;
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
+	LPSTR lpCmdLine, int nCmdShow) {
 
 	HWND original_window = generate_window(hInstance, WINDOW_TITLE, X, Y, WIDTH, HEIGHT);
 	ShowWindow(original_window, nCmdShow);
@@ -338,22 +258,4 @@ void run_forever(HINSTANCE hInstance,
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
-
-/*	sf::RenderWindow window(sf::VideoMode(600, 600), "SFML works!");
-	while (window.isOpen())
-	{
-		sf::Event event;
-		while (window.pollEvent(event))
-		{
-			switch (event.type)
-				case sf::Event::Closed:
-					window.close();
-					break;
-					
-		}
-
-		window.clear();
-		// window.draw(shape);
-		window.display();
-	} */
 }

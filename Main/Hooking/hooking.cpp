@@ -10,14 +10,12 @@
 
 */
 
-
-
 HANDLE open_monitored_file(std::wstring PathName) {
 	HANDLE file;
 	// std::replace(FileName.begin(), FileName.end(), '\\', '/');
 	std::wcout << PathName << std::endl;
 	if (PathName.back() == L'\\') {
-		std::wcout << L"Opened directory: " << PathName << std::endl;
+		// std::wcout << L"Opened directory: " << PathName << std::endl;
 		file = CreateFileW(
 			PathName.c_str(),					// File name
 			FILE_LIST_DIRECTORY,				// Open as directory
@@ -29,7 +27,7 @@ HANDLE open_monitored_file(std::wstring PathName) {
 		);
 	}
 	else {
-		std::wcout << L"Opened file: " << PathName << std::endl;
+		// std::wcout << L"Opened file: " << PathName << std::endl;
 		file = CreateFileW(
 			PathName.c_str(),					// File name
 			GENERIC_READ,						// Open as directory
@@ -40,7 +38,7 @@ HANDLE open_monitored_file(std::wstring PathName) {
 			NULL								// Ignored when opening file
 		);
 	}
-	std::wcout << L"Error: " << std::to_wstring(GetLastError()) << std::endl;
+	// std::wcout << L"Error: " << std::to_wstring(GetLastError()) << std::endl;
 	return file;
 }
 

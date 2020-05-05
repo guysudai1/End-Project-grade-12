@@ -119,6 +119,10 @@
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <ResourceCompile />
+    <ResourceCompile>
+      <PreprocessorDefinitions>BASEDIR=R"($(SolutionDir))"</PreprocessorDefinitions>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -162,13 +166,16 @@
       <AdditionalDependencies>%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
+    <ResourceCompile />
+    <ResourceCompile>
+      <PreprocessorDefinitions>BASEDIR=R"($(SolutionDir))"</PreprocessorDefinitions>
+    </ResourceCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="graphics.h" />
     <ClInclude Include="hooking.h" />
     <ClInclude Include="hashmap.h" />
     <ClInclude Include="inject.h" />
-    <ClInclude Include="resource.h" />
     <ClInclude Include="sha256.h" />
   </ItemGroup>
   <ItemGroup>
@@ -187,11 +194,8 @@
       </PrecompiledHeaderFile>
     </ClCompile>
     <ClCompile Include="inject.cpp" />
-    <ClCompile Include="main.cpp" />
+    <ClCompile Include="not_actually_main.cpp" />
     <ClCompile Include="sha256.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ResourceCompile Include="menu.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

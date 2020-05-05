@@ -2,26 +2,24 @@
 //
 
 #define UNICODE 1
+#define CHILD_PID_PIPENAME		"\\\\.\\pipe\\get_child_pid"
 
 #include <iostream>
 #include <string>
 #include <windows.h>
 
-
 PROCESS_INFORMATION pi;
 
 PROCESS_INFORMATION* StartProcess(std::wstring application_name)
 {
-	// additional information
+	// TODO: Add support for arguments
 	STARTUPINFO si;
-	
 
-	// set the size of the structures
 	ZeroMemory(&si, sizeof(si));
 	si.cb = sizeof(si);
 	ZeroMemory(&pi, sizeof(pi));
 
-	// start the program up
+	// Start desired process
 	if (!CreateProcess(application_name.c_str(),   // Executable path
 		NULL,				// Command line
 		NULL,				// Process handle not inheritable
@@ -45,21 +43,27 @@ PROCESS_INFORMATION* StartProcess(std::wstring application_name)
 
 int main(int argc, char* argv[])
 {
-	std::wstring filePath(GetCommandLineW());
-	size_t first_index = filePath.find_first_of(L'"');
-	size_t second_index = filePath.find_first_of(L'"', first_index + 1);
-	// MessageBox(NULL, filePath.substr(first_index + 1, second_index - first_index - 1).c_str(), L"Program to execute", 1);
-	PROCESS_INFORMATION* hProc = StartProcess(filePath.substr(first_index + 1, second_index - first_index - 1));
+	std::wstring filePath;
+	size_t first_index, second_index;
+	PROCESS_INFORMATION* hProc;
+	HANDLE hPipe;
+	std::string result_str;
+
+	filePath = std::wstring(GetCommandLineW());
+	first_index = filePath.find_first_of(L'"');
+	second_index = filePath.find_first_of(L'"', first_index + 1);
+
+	hProc = StartProcess(filePath.substr(first_index + 1, second_index - first_index - 1));
 	if (hProc->dwProcessId == NULL) {
 		MessageBoxW(NULL, filePath.substr(first_index + 1, second_index - first_index - 1).c_str(), L"Could not start process", MB_ICONERROR);
+		return -1;
 	}
 
-	HANDLE hPipe;
-	std::string pipename("\\\\.\\pipe\\get_child_pid");
+	// Loop until pipe server is connected
 	while (1)
 	{
 		hPipe = CreateFileA(
-			pipename.c_str(),   // pipe name   	
+			CHILD_PID_PIPENAME,   // pipe name   	
 			GENERIC_WRITE,	// read and write access 
 			0,              // no sharing 
 			NULL,           // default security attributes
@@ -67,8 +71,7 @@ int main(int argc, char* argv[])
 			0,              // default attributes 
 			NULL);          // no template file 
 
-	  // Break if the pipe handle is valid. 
-
+	  // Break if the pipe handle is valid.
 		if (hPipe != INVALID_HANDLE_VALUE)
 			break;
 
@@ -80,25 +83,22 @@ int main(int argc, char* argv[])
 			return -1;
 		}
 
-		// All pipe instances are busy, so wait for 20 seconds. 
-
-		if (!WaitNamedPipeA(pipename.c_str(), 5000))
-		{
-			printf("Could not open pipe: 5 second wait timed out.");
-		}
+		// Wait 5 seconds to check if a pipe server has been started
+		WaitNamedPipeA(CHILD_PID_PIPENAME, 5000);
 	}
-	DWORD number_of_read;
-
-	if (!WriteFile(
-		hPipe,
-		std::to_string(hProc->dwProcessId).append("-").append(std::to_string(hProc->dwThreadId)).c_str(),
-		std::to_string(hProc->dwProcessId).append("-").append(std::to_string(hProc->dwThreadId)).length(),
-		&number_of_read,
-		NULL
+	
+	// Generate format "{PID}-{TID}"
+	result_str = std::to_string(hProc->dwProcessId).append("-").append(std::to_string(hProc->dwThreadId));
+	if (!WriteFile( hPipe,	
+		result_str.c_str(), result_str.length(),
+		NULL, NULL // Bytes written, lpOverlapped
 	)) {
 		MessageBoxA(NULL, "Stub.exe: Error", "Could not write to named pipe", MB_ICONERROR);
 	}
 	DisconnectNamedPipe(hPipe);
+
+	CloseHandle(hProc);
+	CloseHandle(hPipe);
 }
 
 
