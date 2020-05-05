@@ -1,5 +1,5 @@
 # End-Project-grade-12
-File monitor hook written in c++
+File monitor written in c++
 
 ## Directory structure:
 
