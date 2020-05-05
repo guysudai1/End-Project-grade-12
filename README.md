@@ -7,7 +7,7 @@ File monitor written in c++
 - Build/ 
 ##### Project DLL (Provides hooking functionality) 
 - DLL/
-##### Provided example (Currently only executs createfilea and pauses, in future builds will have more features)
+##### Provided example (Currently only executes createfilea and pauses, in future builds will have more features)
 - Example/
 ##### GUI - interesting files: inject.cpp/h, graphics.cpp/h
 - Main/
