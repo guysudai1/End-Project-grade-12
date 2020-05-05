@@ -2,13 +2,15 @@
 File monitor hook written in c++
 
 ## Directory structure:
-- Build/ 
+
 ##### Prebuilt binaries + dll for x64. Comes with an example to run (only executes createfilea and pauses) 
-- DLL/
+- Build/ 
 ##### Project DLL (Provides hooking functionality) 
-- Example/
+- DLL/
 ##### Provided example (Currently only executs createfilea and pauses, in future builds will have more features)
-- Main/
+- Example/
 ##### GUI - interesting files: inject.cpp/h, graphics.cpp/h
-- Stub/
+- Main/
 ##### Stub to execute desired process
+- Stub/
+
