@@ -16,11 +16,6 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
                                          FALSE,        // all children don't inherit handler
                                          WAIT_DLL_SEMAPHORE_NAME); // Semaphore name
 
-             if (hSemaphore == NULL) {
-                 MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Semaphore release failed", MB_ICONWARNING);
-                 return -1;
-             }
-
             // Sleep(10000);
             // DebugBreak();
             
@@ -40,12 +35,12 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
 
             if (DetourTransactionCommit() != NO_ERROR)
                 MessageBoxA(NULL, "Could not add detour function!", "Error", MB_ICONERROR);
-
-            if (!ReleaseSemaphore(hSemaphore, 1, NULL)) {
-                MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Semaphore release failed", MB_ICONWARNING);
-                return -1;
+            if (hSemaphore != NULL) {
+                if (!ReleaseSemaphore(hSemaphore, 1, NULL)) {
+                    MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Semaphore release failed", MB_ICONWARNING);
+                }
+                CloseHandle(hSemaphore);
             }
-            CloseHandle(hSemaphore);
             break;
         case DLL_THREAD_ATTACH:
             break;
