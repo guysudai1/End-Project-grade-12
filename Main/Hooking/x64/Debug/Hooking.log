@@ -1,6 +1,0 @@
-﻿  graphics.cpp
-  inject.cpp
-  not_actually_main.cpp
-  Generating Code...
-C:\Users\sudai\source\repos\End-Project-grade-12\Main\Hooking\graphics.cpp(207): warning C4715: 'OnEvent': not all control paths return a value
-  Hooking.vcxproj -> C:\Users\sudai\source\repos\End-Project-grade-12\Main\x64\Debug\Main.exe

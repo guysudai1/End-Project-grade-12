@@ -4,6 +4,7 @@
 #include "icon_functions.h"
 #include "proc.h"
 
+#include <QScrollArea>
 #include <QHBoxLayout>
 #include <psapi.h>
 
@@ -13,6 +14,9 @@
 #define ROW_HEIGHT 18
 #define TABS_WIDTH 1300
 #define TABS_HEIGHT 800
+
+#define PROC_INFO_WIDTH 800
+#define PROC_INFO_HEIGHT 300
 
 #define TAB_WIDTH 1294
 #define TAB_HEIGHT 774
@@ -49,7 +53,6 @@ FelixGUI::FelixGUI(QWidget *parent)
 	tabs->setFixedWidth(TABS_WIDTH);
 	tabs->setFixedHeight(TABS_HEIGHT);
 	tabs->setTabsClosable(true);
-
 
 	this->tabs = tabs;
 
@@ -165,27 +168,56 @@ void FelixGUI::close_tab(int tab_index) {
 
 QWidget* FelixGUI::generate_newtab()
 {
+	QScrollArea* scrollWidget = new QScrollArea();
+
 	QWidget* procTab = new QWidget();
+	scrollWidget->setWidget(procTab);
 	procTab->setFixedSize(TAB_WIDTH, TAB_HEIGHT);
 	// procTab->setStyleSheet("background-color: red");
+	QVBoxLayout* mainLayout = new QVBoxLayout(procTab);
 
-	QHBoxLayout* layout = new QHBoxLayout();
-	layout->setContentsMargins(0, 0, 0, 0);
-	layout->setSizeConstraint(QLayout::SetMaximumSize);
-	procTab->setLayout(layout);
+	QHBoxLayout* topLayout = new QHBoxLayout();
+	topLayout->setContentsMargins(0, 0, 0, 0);
+	topLayout->setSizeConstraint(QLayout::SetMinimumSize);
+	procTab->setLayout(topLayout);
 
 	QLabel* title = new QLabel(this->actions.procName);
 	title->setContentsMargins(0, 0, 0, 0);
 	// title->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
-	// title->setScaledContents(true);
+	title->setScaledContents(true);
+	title->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 	// title->setMaximumHeight(50);
 	title->setStyleSheet("QLabel { margin-top: 30px; font-size: 40px;border: solid #000000; border-spacing: 2px; border-width: 2px 2px 2px 2px; background-color : white; color: #696969; padding-bottom: 5%; padding-left: 2%; padding-right:2%;}");
-	layout->addWidget(title, 0, Qt::AlignHCenter | Qt::AlignTop);
+	topLayout->addWidget(title, 0, Qt::AlignHCenter | Qt::AlignTop);
+	// topLayout->addSpacing(100);
+
+	QHBoxLayout* bottomLayout = new QHBoxLayout();
+	bottomLayout->setContentsMargins(0, 10, 0, 0);
+	bottomLayout->setSizeConstraint(QLayout::SetMinimumSize);
+
+	QWidget* procInfo = new QWidget();
+	procInfo->setFixedSize(PROC_INFO_WIDTH, PROC_INFO_HEIGHT);
+	procInfo->setStyleSheet("background-color: #000000");
+	bottomLayout->addWidget(procInfo, Qt::AlignCenter);
+
+	QHBoxLayout* tableLayout = new QHBoxLayout();
+	tableLayout->setContentsMargins(0, 10, 0, 0);
+
+	QTableWidget* actions = new QTableWidget();
+	actions->setFixedSize(700, 400);
+	tableLayout->addWidget(actions);
+
+	QHBoxLayout* spaceLayout = new QHBoxLayout();
+	spaceLayout->setSpacing(100);
+
+	mainLayout->addLayout(topLayout);
+	mainLayout->addLayout(bottomLayout);
+	mainLayout->addLayout(tableLayout);
+	mainLayout->addLayout(spaceLayout);
 	// layout->addStretch();
 
-	return procTab;
+	return scrollWidget;
 }
-
 
 void FelixGUI::handleContextMenu(const QPoint& pos) {
 	QTableWidgetItem* item = this->tbl->itemAt(pos);
