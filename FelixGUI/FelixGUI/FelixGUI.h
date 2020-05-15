@@ -4,7 +4,7 @@
 #include <QtWidgets/QMainWindow>
 #include <QTableWidget>
 #include "ui_FelixGUI.h"
-
+#include <vector>
 
 class MyActions : public QObject
 {
@@ -14,6 +14,7 @@ public:
 	DWORD pid;
 	QString procName;
 	MyActions();
+	std::vector< std::pair<DWORD, QTableWidget*>> processes;
 public slots:
 	void on_action_launch();
 	void on_action_select_directory();
@@ -44,5 +45,6 @@ private:
 };
 
 void draw_processes(QTableWidget*);
+void recv_proc_info(MyActions*);
 
 

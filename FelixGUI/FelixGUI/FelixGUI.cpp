@@ -1,12 +1,16 @@
 #include "FelixGUI.h"
 #include "graphics.h"
 #include "inject.h"
-#include "icon_functions.h"
 #include "proc.h"
 
+#include <QGraphicsDropShadowEffect>
 #include <QScrollArea>
 #include <QHBoxLayout>
+#include <QLineEdit>
+#include <QTextEdit>
 #include <psapi.h>
+
+#define proc_recv_pipes "\\\\.\\pipe\\procInfoPipe"
 
 #define UPDATE_RATE 3	   // seconds
 #define TRANSLATION_SIZE 8 // bytes
@@ -14,6 +18,9 @@
 #define ROW_HEIGHT 18
 #define TABS_WIDTH 1300
 #define TABS_HEIGHT 800
+
+#define OP_TABLE_WIDTH 750
+#define OP_TABLE_HEIGHT 400
 
 #define PROC_INFO_WIDTH 800
 #define PROC_INFO_HEIGHT 300
@@ -36,8 +43,19 @@
 
 #define COLUMN_AMOUNT 4
 
-#define GCL_HICONSM -34
+// flags: 
+// 0x00000001 CLOSED PROCESS
+// 0x00000002 NETWORK
+// 0x00000003 FILE (OPEN)
+// 0x00000004 FILE (READ)
+// 0x00000005 FILE (WRITE)
 
+typedef struct _procInfoRecv {
+	DWORD pid;
+	DWORD flags;
+	size_t procNameSize; // in characters
+	wchar_t procName[];
+} procInfoRecv, *pprocInfoRecv;
 
 FelixGUI::FelixGUI(QWidget *parent)
 	: QMainWindow(parent)
@@ -102,6 +120,7 @@ FelixGUI::FelixGUI(QWidget *parent)
 	QHeaderView* hView = procs->horizontalHeader();
 	// hView->sortIndicatorOrder();
 	hView->setMinimumSectionSize(110);
+	hView->setStretchLastSection(true);
 
 	QHeaderView* vView = procs->verticalHeader();
 	vView->setVisible(false);
@@ -111,10 +130,23 @@ FelixGUI::FelixGUI(QWidget *parent)
 	HANDLE hThread = CreateThread(NULL, 0, 
 		(LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs, 
 		0, NULL);
+	
+	if (hThread == NULL) {
+		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread (draw_processes)", MB_ICONERROR);
+		return;
+	}
+
+	hThread = CreateThread(NULL, 0,
+		(LPTHREAD_START_ROUTINE)recv_proc_info, (&this->actions),
+		0, NULL);
 
 	if (hThread == NULL) {
-		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread", MB_ICONERROR);
+		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread (recv_proc_info)", MB_ICONERROR);
+		return;
 	}
+	//hThread = CreateThread(NULL, 0,
+	//	(LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs,
+	//	0, NULL);
 	
 }
 
@@ -168,20 +200,24 @@ void FelixGUI::close_tab(int tab_index) {
 
 QWidget* FelixGUI::generate_newtab()
 {
+	DWORD pid = this->actions.pid;
+	QString procName = this->actions.procName;
+
 	QScrollArea* scrollWidget = new QScrollArea();
 
 	QWidget* procTab = new QWidget();
 	scrollWidget->setWidget(procTab);
-	procTab->setFixedSize(TAB_WIDTH, TAB_HEIGHT);
+	procTab->setFixedSize(TAB_WIDTH, TABS_HEIGHT + 50);
 	// procTab->setStyleSheet("background-color: red");
 	QVBoxLayout* mainLayout = new QVBoxLayout(procTab);
+	mainLayout->setSpacing(0);
+	mainLayout->setContentsMargins(0, 0, 0, 0);
 
 	QHBoxLayout* topLayout = new QHBoxLayout();
 	topLayout->setContentsMargins(0, 0, 0, 0);
 	topLayout->setSizeConstraint(QLayout::SetMinimumSize);
-	procTab->setLayout(topLayout);
 
-	QLabel* title = new QLabel(this->actions.procName);
+	QLabel* title = new QLabel(procName);
 	title->setContentsMargins(0, 0, 0, 0);
 	// title->setAlignment(Qt::AlignHCenter | Qt::AlignTop);
 	title->setScaledContents(true);
@@ -192,30 +228,112 @@ QWidget* FelixGUI::generate_newtab()
 	// topLayout->addSpacing(100);
 
 	QHBoxLayout* bottomLayout = new QHBoxLayout();
-	bottomLayout->setContentsMargins(0, 10, 0, 0);
+	bottomLayout->setContentsMargins(0, 20, 0, 0);
 	bottomLayout->setSizeConstraint(QLayout::SetMinimumSize);
 
 	QWidget* procInfo = new QWidget();
 	procInfo->setFixedSize(PROC_INFO_WIDTH, PROC_INFO_HEIGHT);
-	procInfo->setStyleSheet("background-color: #000000");
-	bottomLayout->addWidget(procInfo, Qt::AlignCenter);
+	procInfo->setStyleSheet("background-color: #FFFFFF");
+
+	QGraphicsDropShadowEffect* effect = new QGraphicsDropShadowEffect();
+	effect->setBlurRadius(1);
+	effect->setXOffset(-2);
+	effect->setYOffset(-2);
+	procInfo->setGraphicsEffect(effect);
+
+
+	QVBoxLayout* procInfoVLayout = new QVBoxLayout();
+
+	QHBoxLayout* procInfoLayout = new QHBoxLayout();
+	QLabel* procNameLabel = new QLabel("Process Path: ");
+	procNameLabel->setStyleSheet("QLabel {font-size: 13px;}");
+
+	QLineEdit* procNameEdit = new QLineEdit();
+	QString* procNameText = new QString(procName);
+	procNameEdit->setText(*procNameText);
+	procNameEdit->setFixedWidth(0.9*PROC_INFO_WIDTH - 20);
+	procNameEdit->setFixedHeight(25);
+	procNameEdit->setStyleSheet("QLineEdit{ font-size: 14px; color: #000000;}");
+	procNameEdit->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
+	procInfoLayout->addWidget(procNameLabel, 0, Qt::AlignLeft | Qt::AlignTop);
+	procInfoLayout->addWidget(procNameEdit, 0, Qt::AlignLeft | Qt::AlignTop);
+
+	procInfoVLayout->addLayout(procInfoLayout);
+
+
+	QHBoxLayout* procInfoIs64Bit = new QHBoxLayout();
+	QLabel* procQuestion = new QLabel("Is 64 bit?");
+	QLabel* procIs64Bit = new QLabel(get_proc_bitness(pid) ? "Yes" : "No");
+	procQuestion->setStyleSheet("QLabel {font-size: 13px;}");
+	procIs64Bit->setStyleSheet("QLabel {font-size: 13px;}");
+	procIs64Bit->setContentsMargins(0, 0, 10, 0);
+
+	procInfoIs64Bit->addWidget(procQuestion, 0, Qt::AlignLeft | Qt::AlignTop);
+	procInfoIs64Bit->addWidget(procIs64Bit, 0, Qt::AlignRight | Qt::AlignTop);
+
+	procInfoVLayout->addLayout(procInfoIs64Bit);
+
+	QHBoxLayout* procInfoDependencies = new QHBoxLayout();
+	procInfoDependencies->setContentsMargins(0, 10, 0, 0);
+	QLabel* procInfoDependenciesLabel = new QLabel("Dependencies: ");
+	procInfoDependenciesLabel->setStyleSheet("QLabel {font-size: 13px;}");
+
+	HANDLE hProc = attempt_open_process(pid);
+	std::wstring dependencies = get_all_dependencies(hProc);
+
+	CloseHandle(hProc);
+
+	QTextEdit* procDependenciesEdit = new QTextEdit();
+	procDependenciesEdit->setText(QString::fromStdWString(dependencies));
+	procDependenciesEdit->setFixedWidth(0.85 * PROC_INFO_WIDTH - 20);
+	procDependenciesEdit->setFixedHeight(200);
+	procDependenciesEdit->setStyleSheet("QTextEdit{ font-size: 14px; color: #000000;}");
+	procDependenciesEdit->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
+
+	procInfoDependencies->addWidget(procInfoDependenciesLabel, 0, Qt::AlignLeft | Qt::AlignTop);
+	procInfoDependencies->addWidget(procDependenciesEdit, 0, Qt::AlignLeft | Qt::AlignTop);
+
+	procInfoVLayout->addLayout(procInfoDependencies);
+	procInfoVLayout->insertStretch(-1, 1);
+	procInfo->setLayout(procInfoVLayout);
+
+	bottomLayout->addWidget(procInfo, Qt::AlignTop | Qt::AlignHCenter);
 
 	QHBoxLayout* tableLayout = new QHBoxLayout();
-	tableLayout->setContentsMargins(0, 10, 0, 0);
+	tableLayout->setContentsMargins(0, 30, 0, 0);
 
-	QTableWidget* actions = new QTableWidget();
-	actions->setFixedSize(700, 400);
-	tableLayout->addWidget(actions);
+	QTableWidget* actions = new QTableWidget(0, 3);
+	actions->setFixedSize(OP_TABLE_WIDTH, OP_TABLE_HEIGHT);
+	actions->setHorizontalHeaderItem(0, new QTableWidgetItem("Path"));
+	actions->setHorizontalHeaderItem(1, new QTableWidgetItem("Mode"));
+	actions->setHorizontalHeaderItem(2, new QTableWidgetItem("Time"));
+	
+	QHeaderView* vView = actions->horizontalHeader();
+	vView->setStretchLastSection(true);
 
-	QHBoxLayout* spaceLayout = new QHBoxLayout();
-	spaceLayout->setSpacing(100);
+	QGraphicsDropShadowEffect* tableEffect = new QGraphicsDropShadowEffect();
+	tableEffect->setBlurRadius(1);
+	tableEffect->setXOffset(-1);
+	tableEffect->setYOffset(-1);
+	actions->setGraphicsEffect(tableEffect);
+
+	tableLayout->addWidget(actions, Qt::AlignTop | Qt::AlignHCenter);
+
+	//QHBoxLayout* spaceLayout = new QHBoxLayout();
+	//spaceLayout->setSpacing(100);
 
 	mainLayout->addLayout(topLayout);
 	mainLayout->addLayout(bottomLayout);
 	mainLayout->addLayout(tableLayout);
-	mainLayout->addLayout(spaceLayout);
-	// layout->addStretch();
 
+	mainLayout->insertStretch(-1, 1);
+	// mainLayout->addLayout(spaceLayout);
+	// layout->addStretch();
+	std::pair<DWORD, QTableWidget*> process;
+	process.first = pid;
+	process.second = actions;
+	this->actions.processes.push_back(process);
 	return scrollWidget;
 }
 
@@ -250,170 +368,158 @@ void FelixGUI::handleContextMenu(const QPoint& pos) {
 	}
 }
 
+void recv_proc_info(MyActions* actions) {
+	SERVICE_STATUS_HANDLE handleStatus = NULL;
+	HANDLE hPipeServer = CreateNamedPipeA(proc_recv_pipes, 
+		PIPE_ACCESS_INBOUND, PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+		PIPE_UNLIMITED_INSTANCES, 0, sizeof(wchar_t) * (MAX_PATH + 1) + sizeof(DWORD) * 3 + sizeof(size_t), 0,
+		NULL);
+	if (hPipeServer == INVALID_HANDLE_VALUE) {
+		MessageBoxW(NULL, L"Only one instance of this program is allowed", L"Error", MB_ICONINFORMATION);
+		return;
+	}
+	
+	// char* request = new char[sizeof(wchar_t) * (MAX_PATH + 1) + sizeof()];./
+
+	while (true) {
+		char* struct_length_char = new char[11];
+		if (!ReadFile(hPipeServer, (LPVOID)struct_length_char,
+			11, NULL, NULL))		// Number of bytes to read, Overlapped 
+			continue;
+		
+		DWORD struct_length = std::stoi(std::string(struct_length_char, 11));
+		char* request = new char[struct_length];
+		if (!ReadFile(hPipeServer, (LPVOID)request,
+			struct_length, NULL, NULL))
+			continue;
+
+		auto process = reinterpret_cast<pprocInfoRecv>(request);
+		MessageBoxW(NULL, std::wstring(process->procName, process->procNameSize).c_str(), L"Got that process", MB_ICONINFORMATION);
+	}
+}
+
 void draw_processes(QTableWidget* tbl)
 {
 	while (true) {
 		DWORD size, pid;
 		DWORD* procs = get_procs(&size);
 		HANDLE hProc;
-		HICON pIcon;
 		
 		int counter = 0;
 
 		for (int i = 0; i < size; i++) {
-			std::vector<HWND> windows;
 			wchar_t* procName = new wchar_t[MAX_PATH];
 			QIcon* qtpIcon = nullptr;
 
 			pid = procs[i];
-			hProc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_INFORMATION,
-				FALSE,
-				pid);
-
-			if (hProc == NULL) {
-				// Attempt to open process with LIMITED information.
-				DWORD error = GetLastError();
-				hProc = OpenProcess(PROCESS_VM_READ | PROCESS_QUERY_LIMITED_INFORMATION,
-					FALSE,
-					pid);
-				if (hProc == NULL) {
-					DWORD error = GetLastError();
-					continue;
-				}
-			}
+			hProc = attempt_open_process(pid);
+			if (hProc == NULL)
+				continue;
 
 			/* Get full path to process executable */
-			if (GetModuleFileNameExW(hProc, NULL, procName, MAX_PATH) != 0) {
-				PIDWindows windStruct;
-				windStruct.hwnd = &windows;
-				windStruct.pid = pid;
+			if (GetModuleFileNameExW(hProc, NULL, procName, MAX_PATH) == 0)
+				continue;
 
-				/* Enumerate over all windows to acquire windows with PID of `pid` */
-				EnumWindows(EnumWins, (LPARAM)&windStruct);
+			qtpIcon = acquire_proc_icon(pid, procName);
 
-				/* Attempt to get icon of windows*/
-				for (int wind = 0; wind < windows.size(); wind++) {
-					pIcon = (HICON)GetClassLongA(windows[wind], GCL_HICONSM);
-					int error = GetLastError();
-					error = error;
-					if (pIcon != 0) {
-						QPixmap map = fromHICON(pIcon);
-						qtpIcon = new QIcon(map);
-						break;
+			/* Extract description */
+			std::wstring description;
+			DWORD _;
+			DWORD version_info_size = GetFileVersionInfoSizeW(procName, &_);
+
+			/* Get version info buffer size */
+			if (version_info_size != 0) {
+				// version info buffer
+				char* version_info = new char[version_info_size];
+				if (GetFileVersionInfoW(procName, NULL, version_info_size, (LPVOID)version_info)) {
+
+					struct LANGANDCODEPAGE
+					{
+						WORD wLanguage;
+						WORD wCodePage;
+					} *lpTranslate = NULL;
+
+					wchar_t* cDesc = NULL;
+					wchar_t* translation = new wchar_t[TRANSLATION_SIZE + 1];
+					wchar_t* descriptionPath = new wchar_t[TRANSLATION_SIZE + 32 + 1];
+					wchar_t* versionPath = new wchar_t[TRANSLATION_SIZE + 36 + 1];
+
+					UINT pLenFileInfo;
+
+					/* Get file language */
+					if (VerQueryValue(version_info, L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &pLenFileInfo)) {
+						std::swprintf(translation, TRANSLATION_SIZE + 1, L"%04x%04x", lpTranslate[0].wLanguage, lpTranslate[0].wCodePage);
+					}
+					else {
+						// Pretty common language
+						translation = L"041904b0";
 					}
 
-				}
-				/* Attempt to get icon of executable (from path extracted) */
-				if (qtpIcon == nullptr) {
-					if (ExtractIconExW(procName, 0, NULL, &pIcon, 1) == 1) {
-						qtpIcon = new QIcon(fromHICON(pIcon));
+					/* Generate path to VerQueryValueW */
+					std::swprintf(descriptionPath, TRANSLATION_SIZE + 32 + 1, L"\\StringFileInfo\\%8ls\\FileDescription", translation);
+					std::swprintf(versionPath, TRANSLATION_SIZE + 36 + 1, L"\\StringFileInfo\\%8ls\\FileVersion", translation);
+
+					/* Get description of EXE */
+					if (VerQueryValueW(version_info, descriptionPath, (LPVOID*)&cDesc, &pLenFileInfo)) {
+						description = std::wstring(cDesc);
 					}
-				}
-				/* Set icon to default executable icon if both earlier failed*/
-				if (qtpIcon == nullptr) {
-					qtpIcon = new QIcon(EXE_ICON_PATH);
-				}
 
-				/* Extract description */
-				std::wstring description;
-				DWORD _;
-				DWORD version_info_size = GetFileVersionInfoSizeW(procName, &_);
-
-				/* Get version info buffer size */
-				if (version_info_size != 0) {
-					// version info buffer
-					char* version_info = new char[version_info_size];
-					if (GetFileVersionInfoW(procName, NULL, version_info_size, (LPVOID)version_info)) {
-
-						struct LANGANDCODEPAGE
-						{
-							WORD wLanguage;
-							WORD wCodePage;
-						} *lpTranslate = NULL;
-
-						wchar_t* cDesc = NULL;
-						wchar_t* translation = new wchar_t[TRANSLATION_SIZE + 1];
-						wchar_t* descriptionPath = new wchar_t[TRANSLATION_SIZE + 32 + 1];
-						wchar_t* versionPath = new wchar_t[TRANSLATION_SIZE + 36 + 1];
-
-						UINT pLenFileInfo;
-
-						/* Get file language */
-						if (VerQueryValue(version_info, L"\\VarFileInfo\\Translation", (LPVOID*)&lpTranslate, &pLenFileInfo)) {
-							std::swprintf(translation, TRANSLATION_SIZE + 1, L"%04x%04x", lpTranslate[0].wLanguage, lpTranslate[0].wCodePage);
-						}
-						else {
-							// Pretty common language
-							translation = L"041904b0";
-						}
-
-						/* Generate path to VerQueryValueW */
-						std::swprintf(descriptionPath, TRANSLATION_SIZE + 32 + 1, L"\\StringFileInfo\\%8ls\\FileDescription", translation);
-						std::swprintf(versionPath, TRANSLATION_SIZE + 36 + 1, L"\\StringFileInfo\\%8ls\\FileVersion", translation);
-
-						/* Get description of EXE */
-						if (VerQueryValueW(version_info, descriptionPath, (LPVOID*)&cDesc, &pLenFileInfo)) {
+					/* Get version of EXE */
+					if (VerQueryValueW(version_info, versionPath, (LPVOID*)&cDesc, &pLenFileInfo)) {
+						if (description.empty())
 							description = std::wstring(cDesc);
+						else {
+							description.append(L" - ");
+							description.append(std::wstring(cDesc));
 						}
-
-						/* Get version of EXE */
-						if (VerQueryValueW(version_info, versionPath, (LPVOID*)&cDesc, &pLenFileInfo)) {
-							if (description.empty())
-								description = std::wstring(cDesc);
-							else {
-								description.append(L" - ");
-								description.append(std::wstring(cDesc));
-							}
-						}
-
-						// Deallocate heap memory
-						delete[] versionPath;
-						delete[] descriptionPath;
-						delete[] translation;
 					}
-					delete[] version_info;
+
+					// Deallocate heap memory
+					delete[] versionPath;
+					delete[] descriptionPath;
+					delete[] translation;
 				}
-
-				if (description.empty())
-					description.append(L"No description.");
-				if (counter >= tbl->rowCount()) {
-					tbl->insertRow(counter);
-				}
-				/* Process name */
-				std::wstring shortProcName = std::wstring(procName);
-				size_t last_index = shortProcName.find_last_of(L"\\");
-				shortProcName = shortProcName.substr(last_index + 1, shortProcName.size() - last_index - 1);
-
-				QTableWidgetItem* wiProcName = new QTableWidgetItem(*qtpIcon, QString::fromStdWString(shortProcName));
-				wiProcName->setFlags(wiProcName->flags() & ~Qt::ItemIsEditable);
-				QSize current_size = wiProcName->sizeHint();
-				current_size.setHeight(100);
-				wiProcName->setSizeHint(current_size);
-				tbl->setItem(counter, 0, wiProcName);
-				
-				/* PID */
-				QTableWidgetItem* wiPID = new QTableWidgetItem(QString::fromStdWString(std::to_wstring(pid)));
-				wiPID->setFlags(wiPID->flags() & ~Qt::ItemIsEditable);
-				tbl->setItem(counter, 1, wiPID);
-
-				/* Description */
-				QTableWidgetItem* wiDesc = new QTableWidgetItem(QString::fromStdWString(description));
-				wiDesc->setFlags(wiDesc->flags() & ~Qt::ItemIsEditable);
-				tbl->setItem(counter, 2, wiDesc);
-
-				/* Execution Path */
-				QTableWidgetItem* wiPath = new QTableWidgetItem(QString::fromStdWString(procName));
-				wiPath->setFlags(wiPath->flags() & ~Qt::ItemIsEditable);
-				tbl->setItem(counter, 3, wiPath);
-				/*
-				 *Dependencies*
-				QTableWidgetItem* wiDep = new QTableWidgetItem(QString::fromStdWString(procDependencies));
-				wiDep->setFlags(wiDep->flags() & ~Qt::ItemIsEditable);
-				tbl->setItem(counter, 4, wiDep);
-				*/
-				counter += 1;
-
+				delete[] version_info;
 			}
+
+			if (description.empty())
+				description.append(L"No description.");
+			if (counter >= tbl->rowCount()) {
+				tbl->insertRow(counter);
+			}
+			/* Process name */
+			std::wstring shortProcName = std::wstring(procName);
+			size_t last_index = shortProcName.find_last_of(L"\\");
+			shortProcName = shortProcName.substr(last_index + 1, shortProcName.size() - last_index - 1);
+
+			QTableWidgetItem* wiProcName = new QTableWidgetItem(*qtpIcon, QString::fromStdWString(shortProcName));
+			wiProcName->setFlags(wiProcName->flags() & ~Qt::ItemIsEditable);
+			QSize current_size = wiProcName->sizeHint();
+			current_size.setHeight(100);
+			wiProcName->setSizeHint(current_size);
+			tbl->setItem(counter, 0, wiProcName);
+				
+			/* PID */
+			QTableWidgetItem* wiPID = new QTableWidgetItem(QString::fromStdWString(std::to_wstring(pid)));
+			wiPID->setFlags(wiPID->flags() & ~Qt::ItemIsEditable);
+			tbl->setItem(counter, 1, wiPID);
+
+			/* Description */
+			QTableWidgetItem* wiDesc = new QTableWidgetItem(QString::fromStdWString(description));
+			wiDesc->setFlags(wiDesc->flags() & ~Qt::ItemIsEditable);
+			tbl->setItem(counter, 2, wiDesc);
+
+			/* Execution Path */
+			QTableWidgetItem* wiPath = new QTableWidgetItem(QString::fromStdWString(procName));
+			wiPath->setFlags(wiPath->flags() & ~Qt::ItemIsEditable);
+			tbl->setItem(counter, 3, wiPath);
+			/*
+				*Dependencies*
+			QTableWidgetItem* wiDep = new QTableWidgetItem(QString::fromStdWString(procDependencies));
+			wiDep->setFlags(wiDep->flags() & ~Qt::ItemIsEditable);
+			tbl->setItem(counter, 4, wiDep);
+			*/
+			counter += 1;
 			
 			CloseHandle(hProc);
 			

@@ -28,7 +28,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
                 return FALSE;
             }
            
-            if (DetourAttach(&(PVOID&)pCreateFileA, myCreateFileA) != NO_ERROR) {
+            if (DetourAttach(&(PVOID&)pCreateFileW, myCreateFileW) != NO_ERROR) {
                 MessageBoxA(NULL, "Could not attach CreateFileA", "Failed", MB_ICONINFORMATION);
                 return FALSE;
             }
@@ -57,7 +57,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
                 return FALSE;
             }
 
-            if (DetourDetach(&(PVOID&)pCreateFileA, myCreateFileA) != NO_ERROR) {
+            if (DetourDetach(&(PVOID&)pCreateFileW, myCreateFileW) != NO_ERROR) {
                 MessageBoxA(NULL, "Could not detach CreateFileA", "Failed", MB_ICONINFORMATION);
                 return FALSE;
             }
@@ -69,8 +69,43 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
     return TRUE;
 }
 
-HANDLE WINAPI myCreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+
+void ReportToMainHost(std::wstring content, DWORD flags)
 {
-    MessageBoxA(NULL, lpFileName, "Open:myCreateFileA", MB_ICONINFORMATION);
-    return pCreateFileA(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);;
+    DWORD procInfoSize = sizeof(ProcInfoRecv) + content.size() * sizeof(wchar_t);
+    auto procInfo = reinterpret_cast<PProcInfoRecv>(new char[sizeof(ProcInfoRecv) + content.size() * sizeof(wchar_t)]);
+    procInfo->flags = flags;
+    procInfo->pid = GetProcessId(GetCurrentProcess());
+    procInfo->procNameSize = content.size(); // in characters
+    memcpy(procInfo->procName, content.c_str(), sizeof(wchar_t) * content.size());
+
+    HANDLE hPipe;
+    while (true) {
+        hPipe = CreateFileA(SEND_PROCESS_INFORMATION, GENERIC_WRITE,
+            0, NULL, OPEN_EXISTING,
+            0, NULL);
+
+        if (hPipe != INVALID_HANDLE_VALUE) 
+            break;
+
+        Sleep(5000);
+    }
+    std::string procInfoSizeString = std::to_string(procInfoSize);
+    char* procInfoSizeCharArray = new char[11]; // max dword string size + 1 for nullbyte
+    memset(procInfoSizeCharArray, 0, 11);
+    memcpy(procInfoSizeCharArray, procInfoSizeString.c_str(), procInfoSizeString.size() * sizeof(wchar_t));
+    if (!WriteFile(hPipe, procInfoSizeCharArray, 11, NULL, NULL)) {
+        return;
+    }
+    if (!WriteFile(hPipe, procInfo, procInfoSize, NULL, NULL)) {
+        return;
+    }
+}
+
+HANDLE WINAPI myCreateFileW(LPCWSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode, LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition, DWORD dwFlagsAndAttributes, HANDLE hTemplateFile)
+{
+    ReportToMainHost(std::wstring(lpFileName), 3);
+
+    // MessageBoxA(NULL, lpFileName, "Open:myCreateFileA", MB_ICONINFORMATION);
+    return pCreateFileW(lpFileName, dwDesiredAccess, dwShareMode, lpSecurityAttributes, dwCreationDisposition, dwFlagsAndAttributes, hTemplateFile);
 }
