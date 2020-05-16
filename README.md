@@ -1,5 +1,7 @@
-# End-Project-grade-12
-File monitor written in c++
+# FELIX
+### File Events Logging, Intercepting, and Examining
+
+This entire project was written in C++ using QT, MS Detours and with the help of some people.
 
 ## Directory structure:
 
@@ -14,3 +16,7 @@ File monitor written in c++
 ##### Stub to execute desired process
 - Stub/
 
+## Credits:
+I would like to thank the following people for finding the time to help me out:
+- מגנום
+- iamgweej
