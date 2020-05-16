@@ -28,15 +28,20 @@ class FelixGUI : public QMainWindow
 	Q_OBJECT
 
 public:
+	static void WINAPI startThread(void* This);
 	FelixGUI(QWidget *parent = Q_NULLPTR);
 	void handleContextMenu(const QPoint& pos);
 	~FelixGUI();
 	MyActions actions;
+signals:
+	void addToTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile);
 public slots:
+	void addToProcTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile);
 	void close_tab(int);
 	void on_action_inject();
 	void on_action_view();
 private:
+	void recv_proc_info();
 	QWidget* generate_newtab();
 	Ui::FelixGUIClass ui;
 	QTabWidget* tabs;
@@ -45,6 +50,5 @@ private:
 };
 
 void draw_processes(QTableWidget*);
-void recv_proc_info(MyActions*);
 
 

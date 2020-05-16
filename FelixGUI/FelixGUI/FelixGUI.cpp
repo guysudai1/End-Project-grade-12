@@ -19,8 +19,8 @@
 #define TABS_WIDTH 1300
 #define TABS_HEIGHT 800
 
-#define OP_TABLE_WIDTH 750
-#define OP_TABLE_HEIGHT 400
+#define OP_TABLE_WIDTH 900
+#define OP_TABLE_HEIGHT 500
 
 #define PROC_INFO_WIDTH 800
 #define PROC_INFO_HEIGHT 300
@@ -30,6 +30,10 @@
 
 #define NAME_COL 0
 #define PID_COL 1
+
+#define FILE_MODE		0
+#define NETWORK_MODE	1
+#define CLOSE_PROCESS	2
 
 #define HOME_ICON_PATH "Resources/Icons/home.png"
 #define PROCESS_ICON_PATH "Resources/Icons/process.png"
@@ -65,6 +69,9 @@ FelixGUI::FelixGUI(QWidget *parent)
 					 &this->actions, SLOT(on_action_launch()));
 	QObject::connect(ui.actionExit, SIGNAL(triggered()),
 		&this->actions, SLOT(on_action_exit()));
+
+	QObject::connect(this, SIGNAL(addToTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)),
+			this, SLOT(addToProcTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)));
 
 	QTabWidget* tabs = new QTabWidget(ui.centralWidget);
 	tabs->move(0, 0);
@@ -136,11 +143,9 @@ FelixGUI::FelixGUI(QWidget *parent)
 		return;
 	}
 
-	hThread = CreateThread(NULL, 0,
-		(LPTHREAD_START_ROUTINE)recv_proc_info, (&this->actions),
-		0, NULL);
+	HANDLE newhThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(FelixGUI::startThread), (void*)this, 0, NULL);
 
-	if (hThread == NULL) {
+	if (newhThread == NULL) {
 		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread (recv_proc_info)", MB_ICONERROR);
 		return;
 	}
@@ -148,6 +153,10 @@ FelixGUI::FelixGUI(QWidget *parent)
 	//	(LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs,
 	//	0, NULL);
 	
+}
+void WINAPI FelixGUI::startThread(void* This) {
+	auto current_object = reinterpret_cast<FelixGUI*>(This);
+	current_object->recv_proc_info();
 }
 
 FelixGUI::~FelixGUI() {
@@ -187,6 +196,7 @@ void MyActions::on_action_exit()
 void FelixGUI::on_action_inject()
 {
 	inject_to_process(this->actions.pid, DLL_NAME);
+	this->tabs->addTab(generate_newtab(), this->actions.procName);
 }
 
 void FelixGUI::on_action_view()
@@ -207,7 +217,7 @@ QWidget* FelixGUI::generate_newtab()
 
 	QWidget* procTab = new QWidget();
 	scrollWidget->setWidget(procTab);
-	procTab->setFixedSize(TAB_WIDTH, TABS_HEIGHT + 50);
+	procTab->setFixedSize(TAB_WIDTH, TABS_HEIGHT + 200);
 	// procTab->setStyleSheet("background-color: red");
 	QVBoxLayout* mainLayout = new QVBoxLayout(procTab);
 	mainLayout->setSpacing(0);
@@ -303,7 +313,7 @@ QWidget* FelixGUI::generate_newtab()
 	QHBoxLayout* tableLayout = new QHBoxLayout();
 	tableLayout->setContentsMargins(0, 30, 0, 0);
 
-	QTableWidget* actions = new QTableWidget(0, 3);
+	QTableWidget* actions = new QTableWidget(1000, 3);
 	actions->setFixedSize(OP_TABLE_WIDTH, OP_TABLE_HEIGHT);
 	actions->setHorizontalHeaderItem(0, new QTableWidgetItem("Path"));
 	actions->setHorizontalHeaderItem(1, new QTableWidgetItem("Mode"));
@@ -318,7 +328,14 @@ QWidget* FelixGUI::generate_newtab()
 	tableEffect->setYOffset(-1);
 	actions->setGraphicsEffect(tableEffect);
 
+	for (int i = 0; i < 1000; i++) {
+		actions->setItem(i, 0, new QTableWidgetItem(" "));
+		actions->setItem(i, 1, new QTableWidgetItem(" "));
+		actions->setItem(i, 2, new QTableWidgetItem(" "));
+	}
+
 	tableLayout->addWidget(actions, Qt::AlignTop | Qt::AlignHCenter);
+
 
 	//QHBoxLayout* spaceLayout = new QHBoxLayout();
 	//spaceLayout->setSpacing(100);
@@ -368,7 +385,49 @@ void FelixGUI::handleContextMenu(const QPoint& pos) {
 	}
 }
 
-void recv_proc_info(MyActions* actions) {
+void FelixGUI::addToProcTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile) {
+
+	QTableWidget* current_proc_table = this->actions.processes[index].second;
+	if (isFile == CLOSE_PROCESS)
+		this->actions.processes.erase(this->actions.processes.begin() + index);
+
+	unsigned int last_row = current_proc_table->rowCount() + 1;
+	// current_proc_table->setRowCount(current_proc_table->rowCount() + 1);
+	int i;
+	for (i = 0; i < last_row; i++) {
+		if (current_proc_table->item(i, 0)->text() == " ")
+			break;
+	}
+	// Path / Network path
+	if (isFile == FILE_MODE || isFile == NETWORK_MODE)
+		current_proc_table->setItem(i, 0, new QTableWidgetItem(QString::fromWCharArray(path)));
+	else 
+		current_proc_table->setItem(i, 0, new QTableWidgetItem("Closed"));
+
+	// Mode
+	current_proc_table->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(std::string(mode))));
+
+	// Time
+	current_proc_table->setItem(i, 2, new QTableWidgetItem(QString::fromWCharArray(time)));
+
+	QColor* color;
+	if (isFile == FILE_MODE) {
+		color = new QColor(149, 249, 133, 200);
+	}
+	else if (isFile == NETWORK_MODE) {
+		color = new QColor(84, 148, 218, 200);
+	}
+	else {
+		color = new QColor(231, 76, 60, 200);
+	}
+	
+	for (int j = 0; j < current_proc_table->columnCount(); j++)
+		current_proc_table->item(i, j)->setBackground(*color);
+
+	current_proc_table->resizeColumnToContents(0);
+}
+
+void FelixGUI::recv_proc_info() {
 	SERVICE_STATUS_HANDLE handleStatus = NULL;
 	HANDLE hPipeServer = CreateNamedPipeA(proc_recv_pipes, 
 		PIPE_ACCESS_INBOUND, PIPE_TYPE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
@@ -382,20 +441,66 @@ void recv_proc_info(MyActions* actions) {
 	// char* request = new char[sizeof(wchar_t) * (MAX_PATH + 1) + sizeof()];./
 
 	while (true) {
-		char* struct_length_char = new char[11];
-		if (!ReadFile(hPipeServer, (LPVOID)struct_length_char,
-			11, NULL, NULL))		// Number of bytes to read, Overlapped 
-			continue;
-		
-		DWORD struct_length = std::stoi(std::string(struct_length_char, 11));
-		char* request = new char[struct_length];
-		if (!ReadFile(hPipeServer, (LPVOID)request,
-			struct_length, NULL, NULL))
-			continue;
+		if (ConnectNamedPipe(hPipeServer, NULL) != FALSE) {
+			char* struct_length_char = new char[12];
+			memset(struct_length_char, 0, 12);
+			if (!ReadFile(hPipeServer, (LPVOID)struct_length_char,
+				12, NULL, NULL))		// Number of bytes to read, Overlapped 
+				continue;
 
-		auto process = reinterpret_cast<pprocInfoRecv>(request);
-		MessageBoxW(NULL, std::wstring(process->procName, process->procNameSize).c_str(), L"Got that process", MB_ICONINFORMATION);
+			DWORD struct_length = std::stoi(std::string(struct_length_char, 12));
+			char* request = new char[struct_length];
+			if (!ReadFile(hPipeServer, (LPVOID)request,
+				struct_length, NULL, NULL))
+				continue;
+
+			auto process = reinterpret_cast<pprocInfoRecv>(request);
+			unsigned int index = 0;
+			for (auto& processChild : this->actions.processes) {
+				if (processChild.first == process->pid)
+					break;
+				++index;
+			}
+			if (index == this->actions.processes.size())
+				continue;
+			QTableWidget* current_proc_table = this->actions.processes[index].second;
+			wchar_t* procPath = new wchar_t[process->procNameSize + 1];
+			procPath[process->procNameSize] = 0;
+			memcpy(procPath, process->procName, process->procNameSize * sizeof(wchar_t));
+
+			SYSTEMTIME* currentTime = reinterpret_cast<SYSTEMTIME*>(new char[sizeof(SYSTEMTIME)]);
+			GetLocalTime(currentTime);
+			wchar_t* time = new wchar_t[13]; // hour:minute:second:milisecond
+			memset(time, 0, 13);
+			swprintf(time, L"%02d:%02d:%02d.%03d", currentTime->wHour, currentTime->wMinute, currentTime->wSecond, currentTime->wMilliseconds);
+			delete[] currentTime;
+			if (process->flags == 0x1) {
+				// Process closed
+				emit addToTable(index, procPath, "Closed", time, CLOSE_PROCESS);
+			}
+			else if (process->flags == 0x2) {
+				// Network
+				emit addToTable(index, procPath, "Network", time, NETWORK_MODE);
+			}
+			else if (process->flags == 0x3) {
+				// Open file
+				emit addToTable(index, procPath, "Open", time, FILE_MODE);
+			}
+			else if (process->flags == 0x4) {
+				// Read file
+				emit addToTable(index, procPath, "Read", time, FILE_MODE);
+			}
+			else if (process->flags == 0x5) {
+				// Write to file
+				emit addToTable(index, procPath, "Write", time, FILE_MODE);
+			}
+			// delete[] time;
+			// MessageBoxW(NULL, std::wstring(process->procName, process->procNameSize).c_str(), L"Got that process", MB_ICONINFORMATION);
+		}
+		DisconnectNamedPipe(hPipeServer);
 	}
+
+	CloseHandle(hPipeServer);
 }
 
 void draw_processes(QTableWidget* tbl)
