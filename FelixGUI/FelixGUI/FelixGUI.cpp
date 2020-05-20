@@ -35,6 +35,14 @@
 #define NETWORK_MODE	1
 #define CLOSE_PROCESS	2
 
+#define CLOSED_PROCESS  0x1
+#define REPORT_OPEN	    0x2
+#define FILE_READ	    0x3
+#define FILE_WRITE	    0x4
+#define NETWORK_CONNECT 0x5
+#define NETWORK_SEND	0x6
+#define NETWORK_RECV	0x7
+
 #define HOME_ICON_PATH "Resources/Icons/home.png"
 #define PROCESS_ICON_PATH "Resources/Icons/process.png"
 #define PID_ICON_PATH "Resources/Icons/pid.png"
@@ -65,11 +73,13 @@ FelixGUI::FelixGUI(QWidget *parent)
 	: QMainWindow(parent)
 {
 	ui.setupUi(this);
+	// Connect ui's top bar action launch
 	QObject::connect(ui.actionLaunch, SIGNAL(triggered()),
-					 &this->actions, SLOT(on_action_launch()));
+					 this, SLOT(on_action_launch()));
 	QObject::connect(ui.actionExit, SIGNAL(triggered()),
 		&this->actions, SLOT(on_action_exit()));
 
+	// Create addToTable signal (for recv thread)
 	QObject::connect(this, SIGNAL(addToTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)),
 			this, SLOT(addToProcTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)));
 
@@ -169,19 +179,28 @@ MyActions::MyActions() {
 
 }
 
-void MyActions::on_action_launch()
+void FelixGUI::on_action_launch()
 {
 	std::wstring path;
 	SelectFile(&path);
-	PIDStruct pid;
+	// Check if not selected
 	if (path.empty())
 		return;
-	// Named pipe for getting the process PID 
-	if (launch_process(path, &pid) == FALSE) {
-		MessageBoxW(NULL, L"Could not launch process due to an error in the launch_process function in inject.cpp", L"Launch process error", MB_ICONERROR);
-	}
 
-	wait_for_injection_and_resume(&pid);
+	Injector* inject = new Injector(path);
+	// Named pipe for getting the process PID 
+	inject->launch_process();
+
+	this->actions.pid = inject->get_pid();
+
+	std::wstring shortProcName = std::wstring(path);
+	size_t last_index = shortProcName.find_last_of(L"\\");
+	shortProcName = shortProcName.substr(last_index + 1, shortProcName.size() - last_index - 1);
+	this->actions.procName = QString::fromStdWString(shortProcName);
+
+	this->tabs->addTab(generate_newtab(), this->actions.procName);
+	inject->wait_for_injection_and_resume();
+
 }
 
 void MyActions::on_action_select_directory()
@@ -195,8 +214,15 @@ void MyActions::on_action_exit()
 
 void FelixGUI::on_action_inject()
 {
-	inject_to_process(this->actions.pid, DLL_NAME);
-	this->tabs->addTab(generate_newtab(), this->actions.procName);
+	Injector* inject = new Injector(L"");
+	wchar_t full_dll_path[MAX_PATH + 1];
+	if (GetCurrentDirectoryW(MAX_PATH + 1, full_dll_path) != 0) {
+		inject->inject_to_process(this->actions.pid, std::wstring(full_dll_path).append(L"\\").append(DLL_NAME));
+		this->tabs->addTab(generate_newtab(), this->actions.procName);
+	}
+	else {
+		MessageBoxW(NULL, L"Failed getting the current directory", L"Error", MB_ICONERROR);
+	}
 }
 
 void FelixGUI::on_action_view()
@@ -474,30 +500,40 @@ void FelixGUI::recv_proc_info() {
 			memset(time, 0, 13);
 			swprintf(time, L"%02d:%02d:%02d.%03d", currentTime->wHour, currentTime->wMinute, currentTime->wSecond, currentTime->wMilliseconds);
 			delete[] currentTime;
-			if (process->flags == 0x1) {
+			if (process->flags == CLOSED_PROCESS) {
 				// Process closed
 				emit addToTable(index, procPath, "Closed", time, CLOSE_PROCESS);
 			}
-			else if (process->flags == 0x2) {
-				// Network
-				emit addToTable(index, procPath, "Network", time, NETWORK_MODE);
-			}
-			else if (process->flags == 0x3) {
+			else if (process->flags == REPORT_OPEN) {
 				// Open file
 				emit addToTable(index, procPath, "Open", time, FILE_MODE);
 			}
-			else if (process->flags == 0x4) {
+			else if (process->flags == FILE_READ) {
 				// Read file
 				emit addToTable(index, procPath, "Read", time, FILE_MODE);
 			}
-			else if (process->flags == 0x5) {
+			else if (process->flags == FILE_WRITE) {
 				// Write to file
 				emit addToTable(index, procPath, "Write", time, FILE_MODE);
 			}
+			else if (process->flags == NETWORK_CONNECT) {
+				// Network
+				emit addToTable(index, procPath, "Connect", time, NETWORK_MODE);
+			}
+			else if (process->flags == NETWORK_SEND) {
+				// Network
+				emit addToTable(index, procPath, "Send", time, NETWORK_MODE);
+			}
+			else if (process->flags == NETWORK_RECV) {
+				// Network
+				emit addToTable(index, procPath, "Receive", time, NETWORK_MODE);
+			}
 			// delete[] time;
 			// MessageBoxW(NULL, std::wstring(process->procName, process->procNameSize).c_str(), L"Got that process", MB_ICONINFORMATION);
+			// FlushFileBuffers(hPipeServer);
+			DisconnectNamedPipe(hPipeServer);
+			// CloseHandle(hPipeServer);
 		}
-		DisconnectNamedPipe(hPipeServer);
 	}
 
 	CloseHandle(hPipeServer);

@@ -21,7 +21,7 @@ std::string get_string_error()
     return message;
 }
 
-VOID start_process(std::wstring application_name, std::wstring child_process)
+VOID Injector::start_process()
 {
     /*
     Actual call to stub.exe (intermediate) in order to launch desired process detached
@@ -37,23 +37,39 @@ VOID start_process(std::wstring application_name, std::wstring child_process)
     ZeroMemory(&pi, sizeof(pi));
 
     // Start stub program
-    CreateProcess(application_name.c_str(),   // Path to stub
-        (LPWSTR)((application_name + L"\"" + child_process + L"\"").c_str()),        // Command line (desired program to launch)
+    CreateProcess(STUB_NAME,   // Path to stub
+		(LPWSTR)this->application_name.append(L"\"").insert(0, L"\"").c_str(),        // Command line (desired program to launch)
         NULL,           // Process handle not inheritable
         NULL,           // Thread handle not inheritable
         FALSE,          // Set handle inheritance to FALSE
-        0,              // No creation flags
+        NULL,              // No creation flags
         NULL,           // Use parent's environment block
         NULL,           // Use parent's starting directory 
         &si,            // Pointer to STARTUPINFO structure
         &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
     );
     // Close process and thread handles. 
+
+	PIDStruct* current_child = reinterpret_cast<PIDStruct*>(new char[sizeof(PIDStruct)]);
+	this->child = current_child;
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 }
 
-VOID wait_for_injection_and_resume(PPIDStruct childPID)
+Injector::Injector(std::wstring path)
+{
+	this->application_name = path;
+}
+
+Injector::~Injector()
+{
+}
+
+DWORD Injector::get_pid() {
+	return this->child->PID;
+}
+
+VOID Injector::wait_for_injection_and_resume()
 {
     /*
     Detecting end of dll injection, whenever it finishes the FileMon resumes the main thread and lets the 
@@ -73,15 +89,17 @@ VOID wait_for_injection_and_resume(PPIDStruct childPID)
         return;
     }
     
-    inject_to_process(childPID->PID, DLL_NAME);
-
-    // Wait for DLL injection to end
-    WaitForSingleObject(hSemaphore, INFINITE);
-    resume_process(childPID->TID);
+	wchar_t full_dll_path[MAX_PATH + 1];
+	if (GetCurrentDirectoryW(MAX_PATH + 1, full_dll_path) != 0) {
+		this->inject_to_process(this->child->PID, std::wstring(full_dll_path).append(L"\\").append(DLL_NAME) );
+		// Wait for DLL injection to end
+		WaitForSingleObject(hSemaphore, INFINITE);
+		this->resume_process();
+	}
     CloseHandle(hSemaphore);
 }
 
-BOOL launch_process(std::wstring path, PPIDStruct pid)
+BOOL Injector::launch_process()
 {
     /*
     In order to call an executable and prevent it from being the child of the current process
@@ -126,7 +144,7 @@ BOOL launch_process(std::wstring path, PPIDStruct pid)
 
     // Call Stub.exe and create process separated from current process (not child of)
     // TODO: Remove constant path
-    start_process(STUB_NAME, path);
+    this->start_process();
 
     while (!connected && hPipe != INVALID_HANDLE_VALUE)
     {
@@ -149,13 +167,15 @@ BOOL launch_process(std::wstring path, PPIDStruct pid)
     // Extract PID and TID from pipe
     str_buf = std::string(buf);
     seperator = str_buf.find('-');
-    pid->PID = std::stoi(str_buf.substr(0, seperator));
-    pid->TID = std::stoi(str_buf.substr(seperator + 1, str_buf.length() - seperator));
+	PIDStruct* cur_child = new PIDStruct;
+	cur_child->PID = std::stoi(str_buf.substr(0, seperator));
+	cur_child->TID = std::stoi(str_buf.substr(seperator + 1, str_buf.length() - seperator));
+	this->child = cur_child;
 
     return TRUE;
 }
 
-void inject_to_process(DWORD pid, std::wstring dllpath) 
+void Injector::inject_to_process(DWORD pid, std::wstring dllpath) 
 {
     /*
     Injects DLL to process with PID of pid. 
@@ -224,13 +244,13 @@ void inject_to_process(DWORD pid, std::wstring dllpath)
     CloseHandle(hProc);
 }
 
-void resume_process(DWORD thread_pid) {
+void Injector::resume_process() {
     /*
     (NOTE) Created process as SUSPENDED in order to have time to inject to it [without missing hooks], 
     so in order for it to run we need to awaken its main thread.
     */
 
-    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, thread_pid);
+    HANDLE hThread = OpenThread(THREAD_SUSPEND_RESUME, FALSE, this->child->TID);
     ResumeThread(hThread);
     CloseHandle(hThread);
 }

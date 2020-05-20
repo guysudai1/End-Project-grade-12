@@ -19,5 +19,5 @@ std::wstring get_all_dependencies(HANDLE);
 HANDLE attempt_open_process(DWORD);
 QIcon* acquire_proc_icon(DWORD, wchar_t*);
 void get_hwnd_from_pid(DWORD, std::vector <HWND>&);
-BOOL CALLBACK EnumWins(HWND, LPARAM);
+BOOL CALLBACK enum_wins(HWND, LPARAM);
 #endif

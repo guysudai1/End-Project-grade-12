@@ -16,11 +16,8 @@ public:
 	MyActions();
 	std::vector< std::pair<DWORD, QTableWidget*>> processes;
 public slots:
-	void on_action_launch();
 	void on_action_select_directory();
 	void on_action_exit();
-
-
 };
 
 class FelixGUI : public QMainWindow
@@ -36,6 +33,7 @@ public:
 signals:
 	void addToTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile);
 public slots:
+	void on_action_launch();
 	void addToProcTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile);
 	void close_tab(int);
 	void on_action_inject();

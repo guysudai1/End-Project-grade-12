@@ -1,0 +1,7 @@
+﻿  ExampleProgram.cpp
+  Generating code
+  1 of 14 functions ( 7.1%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    6 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  ExampleProgram.vcxproj -> C:\Users\GUY\Source\Repos\Process-Monitor-FELIX-\Example\ExampleProgram\x64\Release\ExampleProgram.exe
