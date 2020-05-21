@@ -86,10 +86,10 @@ int main(int argc, char* argv[])
 		// Wait 5 seconds to check if a pipe server has been started
 		WaitNamedPipeA(CHILD_PID_PIPENAME, 5000);
 	}
-	
+
 	// Generate format "{PID}-{TID}"
 	result_str = std::to_string(hProc->dwProcessId).append("-").append(std::to_string(hProc->dwThreadId));
-	if (!WriteFile( hPipe,	
+	if (!WriteFile(hPipe,
 		result_str.c_str(), result_str.length(),
 		NULL, NULL // Bytes written, lpOverlapped
 	)) {
@@ -100,5 +100,3 @@ int main(int argc, char* argv[])
 	CloseHandle(hProc);
 	CloseHandle(hPipe);
 }
-
-

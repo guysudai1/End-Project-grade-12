@@ -36,22 +36,23 @@ VOID Injector::start_process()
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
+	std::wstring app_str = (std::wstring(STUB_NAME) + L"\"" + application_name + L"\"");
     // Start stub program
-    CreateProcess(STUB_NAME,   // Path to stub
-		(LPWSTR)this->application_name.append(L"\"").insert(0, L"\"").c_str(),        // Command line (desired program to launch)
-        NULL,           // Process handle not inheritable
-        NULL,           // Thread handle not inheritable
-        FALSE,          // Set handle inheritance to FALSE
-        NULL,              // No creation flags
-        NULL,           // Use parent's environment block
-        NULL,           // Use parent's starting directory 
-        &si,            // Pointer to STARTUPINFO structure
-        &pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
-    );
+	INT err = CreateProcess(STUB_NAME,   // Path to stub
+		(LPWSTR)app_str.c_str(),        // Command line (desired program to launch)
+		NULL,           // Process handle not inheritable
+		NULL,           // Thread handle not inheritable
+		FALSE,          // Set handle inheritance to FALSE
+		0,              // No creation flags
+		NULL,           // Use parent's environment block
+		NULL,           // Use parent's starting directory 
+		&si,            // Pointer to STARTUPINFO structure
+		&pi             // Pointer to PROCESS_INFORMATION structure (removed extra parentheses)
+	);
     // Close process and thread handles. 
-
-	PIDStruct* current_child = reinterpret_cast<PIDStruct*>(new char[sizeof(PIDStruct)]);
-	this->child = current_child;
+	if (err != 0) {
+		err = GetLastError();
+	}
     CloseHandle(pi.hProcess);
     CloseHandle(pi.hThread);
 }
@@ -119,58 +120,58 @@ BOOL Injector::launch_process()
     Creating desired process as suspended in order to have time to inject it
     */
 
-    HANDLE hPipe; // Store named pipe handle           
-    bool connected = false; // Check if one pipe has connected
-    char buf[1024]; // Buffer to store {PID}-{TID} string 
-    std::string str_buf; // Stores buffer in string form 
-    DWORD read_amount; // Used temp while reading pipe
-    size_t seperator; // Used temp for finding index of separator
+	HANDLE hPipe; // Store named pipe handle           
+	bool connected = false; // Check if one pipe has connected
+	char buf[1024]; // Buffer to store {PID}-{TID} string 
+	std::string str_buf; // Stores buffer in string form 
+	DWORD read_amount; // Used temp while reading pipe
+	size_t seperator; // Used temp for finding index of separator
 
-    // Create named pipe for transferring PID and TID of desired process to inject
-    hPipe = CreateNamedPipeA(CHILD_PID_PIPENAME,
-        PIPE_ACCESS_INBOUND,
-        PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
-        1,
-        1024,
-        1024,
-        NMPWAIT_USE_DEFAULT_WAIT,
-        NULL);
+	// Create named pipe for transferring PID and TID of desired process to inject
+	hPipe = CreateNamedPipeA(CHILD_PID_PIPENAME,
+		PIPE_ACCESS_INBOUND,
+		PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS,
+		1,
+		1024,
+		1024,
+		NMPWAIT_USE_DEFAULT_WAIT,
+		NULL);
 
-    if (hPipe == INVALID_HANDLE_VALUE)
-    {
-        MessageBoxA(NULL, "CreateNamedPipe failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
-        return FALSE;
-    }
+	if (hPipe == INVALID_HANDLE_VALUE)
+	{
+		MessageBoxA(NULL, "CreateNamedPipe failed", std::to_string(GetLastError()).c_str(), MB_ICONWARNING);
+		return FALSE;
+	}
 
-    // Call Stub.exe and create process separated from current process (not child of)
-    // TODO: Remove constant path
-    this->start_process();
+	// Call Stub.exe and create process separated from current process (not child of)
+	// TODO: Remove constant path
+	this->start_process();
 
-    while (!connected && hPipe != INVALID_HANDLE_VALUE)
-    {
-        if (ConnectNamedPipe(hPipe, NULL) != FALSE)   // wait for someone to connect to the pipe
-        {
-            while (ReadFile(hPipe, buf, sizeof(buf) - 1, &read_amount, NULL) != FALSE)
-            {
-                // Terminate string
-                buf[read_amount] = '\0';
-                // 1 Pipe max read.
-                connected = true;
-            }
-        }
+	while (!connected && hPipe != INVALID_HANDLE_VALUE)
+	{
+		if (ConnectNamedPipe(hPipe, NULL) != FALSE)   // wait for someone to connect to the pipe
+		{
+			while (ReadFile(hPipe, buf, sizeof(buf) - 1, &read_amount, NULL) != FALSE)
+			{
+				// Terminate string
+				buf[read_amount] = '\0';
+				// 1 Pipe max read.
+				connected = true;
+			}
+		}
 
-        DisconnectNamedPipe(hPipe);
-    }
+		DisconnectNamedPipe(hPipe);
+	}
 
-    CloseHandle(hPipe);
-    
-    // Extract PID and TID from pipe
-    str_buf = std::string(buf);
-    seperator = str_buf.find('-');
-	PIDStruct* cur_child = new PIDStruct;
-	cur_child->PID = std::stoi(str_buf.substr(0, seperator));
-	cur_child->TID = std::stoi(str_buf.substr(seperator + 1, str_buf.length() - seperator));
-	this->child = cur_child;
+	CloseHandle(hPipe);
+
+	// Extract PID and TID from pipe
+	str_buf = std::string(buf);
+	seperator = str_buf.find('-');
+	PIDStruct* child_struct = new PIDStruct;
+	child_struct->PID = std::stoi(str_buf.substr(0, seperator));
+	child_struct->TID = std::stoi(str_buf.substr(seperator + 1, str_buf.length() - seperator));
+	this->child = child_struct;
 
     return TRUE;
 }

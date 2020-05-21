@@ -10,7 +10,7 @@ int main()
     std::cout << "Hello World!\n";
     system("pause");
     HANDLE file = CreateFileW(L"ExampleFileTest.txt", GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-	char* buf = new char[100];
+	char* buf[100];
 	WriteFile(file, "PleaseWrite", 11, NULL, NULL);
 	ReadFile(file, buf, 99, NULL, NULL);
     CloseHandle(file);

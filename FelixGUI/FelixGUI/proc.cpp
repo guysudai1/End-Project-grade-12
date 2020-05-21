@@ -77,7 +77,7 @@ HMODULE* get_proc_modules(HANDLE hProc, DWORD* size) {
 	do {
 		procs = new HMODULE[current_mem];
 		if (EnumProcessModules(hProc, procs, current_mem * sizeof(DWORD), &bytesReturned) == 0) {
-			MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: get_procs_modules", MB_ICONERROR);
+			// MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: get_procs_modules", MB_ICONERROR);
 		}
 		if (bytesReturned / sizeof(DWORD) == current_mem) {
 			current_mem *= 2;
@@ -98,7 +98,7 @@ DWORD* get_procs(DWORD* size) {
 	do {
 		procs = new DWORD[current_mem];
 		if (EnumProcesses(procs, current_mem * sizeof(DWORD), &bytesReturned) == 0) {
-			MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: get_procs", MB_ICONERROR);
+			// MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: get_procs", MB_ICONERROR);
 		}
 		if (bytesReturned / sizeof(DWORD) == current_mem) {
 			current_mem *= 2;

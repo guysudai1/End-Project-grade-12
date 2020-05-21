@@ -32,7 +32,6 @@ public:
     QWidget *centralWidget;
     QLabel *label;
     QMenuBar *menuBar;
-    QMenu *menuFile;
     QMenu *menuProcess;
     QMenu *menuFile_2;
 
@@ -63,8 +62,6 @@ public:
         menuBar = new QMenuBar(FelixGUIClass);
         menuBar->setObjectName(QStringLiteral("menuBar"));
         menuBar->setGeometry(QRect(0, 0, 1300, 21));
-        menuFile = new QMenu(menuBar);
-        menuFile->setObjectName(QStringLiteral("menuFile"));
         menuProcess = new QMenu(menuBar);
         menuProcess->setObjectName(QStringLiteral("menuProcess"));
         menuFile_2 = new QMenu(menuBar);
@@ -72,9 +69,7 @@ public:
         FelixGUIClass->setMenuBar(menuBar);
 
         menuBar->addAction(menuFile_2->menuAction());
-        menuBar->addAction(menuFile->menuAction());
         menuBar->addAction(menuProcess->menuAction());
-        menuFile->addAction(actionSelect_Directory);
         menuProcess->addAction(actionLaunch);
         menuProcess->addAction(actionExisting_Process);
         menuFile_2->addAction(actionExit);
@@ -92,7 +87,6 @@ public:
         actionSelect_Directory->setText(QApplication::translate("FelixGUIClass", "Select Directory", Q_NULLPTR));
         actionExisting_Process->setText(QApplication::translate("FelixGUIClass", "Existing Process", Q_NULLPTR));
         label->setText(QApplication::translate("FelixGUIClass", "Felix - File Events Logging, Interrupting and Examining", Q_NULLPTR));
-        menuFile->setTitle(QApplication::translate("FelixGUIClass", "Directory", Q_NULLPTR));
         menuProcess->setTitle(QApplication::translate("FelixGUIClass", "Process", Q_NULLPTR));
         menuFile_2->setTitle(QApplication::translate("FelixGUIClass", "File", Q_NULLPTR));
     } // retranslateUi

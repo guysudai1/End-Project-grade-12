@@ -83,6 +83,7 @@ FelixGUI::FelixGUI(QWidget *parent)
 	QObject::connect(this, SIGNAL(addToTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)),
 			this, SLOT(addToProcTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)));
 
+	// Tabs widget
 	QTabWidget* tabs = new QTabWidget(ui.centralWidget);
 	tabs->move(0, 0);
 	tabs->setFixedWidth(TABS_WIDTH);
@@ -91,21 +92,23 @@ FelixGUI::FelixGUI(QWidget *parent)
 
 	this->tabs = tabs;
 
+	// Home tab
 	QWidget* homePage = new QWidget(tabs);
 	homePage->move(0, 0);
 	homePage->setFixedWidth(TAB_WIDTH);
 	homePage->setFixedHeight(TAB_HEIGHT);
 
 	QIcon* homeIcon = new QIcon(HOME_ICON_PATH);
-
 	tabs->addTab(homePage, *homeIcon, "Home");
 
 	tabs->tabBar()->tabButton(0, QTabBar::RightSide)->deleteLater();
 	tabs->tabBar()->setTabButton(0, QTabBar::RightSide, 0);
 
+	// Enable tab closing
 	connect(tabs, SIGNAL(tabCloseRequested(int)),
 		this, SLOT(close_tab(int)));
 
+	// Processes table
 	QTableWidget* procs = new QTableWidget(0, COLUMN_AMOUNT, homePage);
 	procs->setContextMenuPolicy(Qt::CustomContextMenu);
 	procs->resize(TAB_WIDTH, TAB_HEIGHT - 20);
@@ -130,12 +133,10 @@ FelixGUI::FelixGUI(QWidget *parent)
 	procs->setHorizontalHeaderItem(1, new QTableWidgetItem(*pidIcon, "PID"));
 	procs->setHorizontalHeaderItem(2, new QTableWidgetItem(*commentIcon, "Description"));
 	procs->setHorizontalHeaderItem(3, new QTableWidgetItem(*execIcon, "Execution path"));
-	// procs->setHorizontalHeaderItem(4, new QTableWidgetItem(*dllIcon, "Dependencies"));
 
 	procs->resizeColumnsToContents();
 
 	QHeaderView* hView = procs->horizontalHeader();
-	// hView->sortIndicatorOrder();
 	hView->setMinimumSectionSize(110);
 	hView->setStretchLastSection(true);
 
@@ -144,26 +145,23 @@ FelixGUI::FelixGUI(QWidget *parent)
 	vView->setSectionResizeMode(QHeaderView::Fixed);
 	vView->setDefaultSectionSize(ROW_HEIGHT);
 
-	HANDLE hThread = CreateThread(NULL, 0, 
-		(LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs, 
-		0, NULL);
+	// Thread to draw processes in table
+	HANDLE hThread = CreateThread(NULL, 0,  (LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs,  0, NULL);
 	
 	if (hThread == NULL) {
 		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread (draw_processes)", MB_ICONERROR);
 		return;
 	}
 
+	// Thread to wait for information from process
 	HANDLE newhThread = CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)(FelixGUI::startThread), (void*)this, 0, NULL);
 
 	if (newhThread == NULL) {
 		MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: start_thread (recv_proc_info)", MB_ICONERROR);
 		return;
 	}
-	//hThread = CreateThread(NULL, 0,
-	//	(LPTHREAD_START_ROUTINE)draw_processes, (LPVOID)procs,
-	//	0, NULL);
-	
 }
+
 void WINAPI FelixGUI::startThread(void* This) {
 	auto current_object = reinterpret_cast<FelixGUI*>(This);
 	current_object->recv_proc_info();

@@ -161,13 +161,14 @@ void ReportToMainHost(std::wstring content, DWORD flags)
 		/*
 			Get full file access path
 		*/
-		full_path = new wchar_t[MAX_PATH + 1];
-		memset(full_path, 0, (MAX_PATH + 1) * sizeof(wchar_t));
-		length = GetFullPathNameW(content.c_str(), MAX_PATH, full_path, NULL);
+
+		wchar_t path_arr[MAX_PATH + 1];
+		memset(path_arr, 0, (MAX_PATH + 1) * sizeof(wchar_t));
+		length = GetFullPathNameW(content.c_str(), MAX_PATH, path_arr, NULL);
 		if (length == NULL) {
-			delete[] full_path;
 			return;
 		}
+		full_path = path_arr;
 	}
 	
 
@@ -225,7 +226,7 @@ void ReportToMainHost(std::wstring content, DWORD flags)
 
 	// Get process info size
     std::string procInfoSizeString = std::to_string(procInfoSize);
-    char* procInfoSizeCharArray = new char[12]; // max dword string size + 1 for nullbyte
+    char procInfoSizeCharArray[12]; // max dword string size + 1 for nullbyte
 
     memset(procInfoSizeCharArray, 0, 12);
     memcpy(procInfoSizeCharArray, procInfoSizeString.c_str(), procInfoSizeString.size());
@@ -245,6 +246,7 @@ void ReportToMainHost(std::wstring content, DWORD flags)
         return;
     }
 
+	delete[] procInfo;
     DisconnectNamedPipe(hPipe);
     CloseHandle(hPipe);
 }
@@ -279,7 +281,7 @@ NTSTATUS (NTAPI myNtWriteFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE
 		hook for NtWriteFile() function
 	*/
 
-	wchar_t* pathName = new wchar_t[MAX_PATH + 1];
+	wchar_t pathName[MAX_PATH + 1];
 	memset(pathName, 0, MAX_PATH + 1);
 	
 	// Acquire full path from handle
@@ -291,7 +293,6 @@ NTSTATUS (NTAPI myNtWriteFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE
 
 	std::wstring full_string = std::wstring(pathName);
 	ReportToMainHost(full_string, FILE_WRITE);
-	delete[] pathName;
 
 	return PPNtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 }
@@ -302,7 +303,7 @@ NTSTATUS(NTAPI myNtReadFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE A
 		hook for NtReadFile() function
 	*/
 
-	wchar_t* pathName = new wchar_t[MAX_PATH + 1];
+	wchar_t pathName[MAX_PATH + 1];
 	memset(pathName, 0, MAX_PATH + 1);
 	// Acquire full path from handle
 	if (GetFinalPathNameByHandleW(FileHandle, pathName, sizeof(wchar_t) * (MAX_PATH + 1), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) == ERROR_PATH_NOT_FOUND) {
@@ -312,7 +313,6 @@ NTSTATUS(NTAPI myNtReadFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE A
 	}
 	std::wstring full_string = std::wstring(pathName);
 	ReportToMainHost(full_string, FILE_READ);
-	delete[] pathName;
 
 	return PPNtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 }
@@ -326,27 +326,25 @@ void send_host_sock_info(const sockaddr* name, DWORD flags) {
 		// IPv4
 
 		const sockaddr_in* info = reinterpret_cast<const sockaddr_in*>(name);
-		wchar_t* ip_addr_dst = new wchar_t[16];
+		wchar_t ip_addr_dst[16];
 		memset(ip_addr_dst, 0, 16 * sizeof(wchar_t));
 
 		if (PPWSInetNtop(info->sin_family, &info->sin_addr, ip_addr_dst, 16) != NULL) {
 			// Generate <ip>:<port> wstring
 			ReportToMainHost(std::wstring(ip_addr_dst).append(L":").append(std::to_wstring(pNtohs(info->sin_port))), flags);
 		}
-		delete[] ip_addr_dst;
 	}
 	else if (name->sa_family == AF_INET6) {
 		// IPv6
 
 		const sockaddr_in6 * info = reinterpret_cast<const sockaddr_in6 *>(name);
-		wchar_t* ip_addr_dst = new wchar_t[46];
+		wchar_t ip_addr_dst[46];
 		memset(ip_addr_dst, 0, 46 * sizeof(wchar_t));
 
 		if (PPWSInetNtop(info->sin6_family, &info->sin6_addr, ip_addr_dst, 46) != NULL) {
 			// Generate <ip>:<port> wstring
 			ReportToMainHost(std::wstring(ip_addr_dst).append(L":").append(std::to_wstring(pNtohs(info->sin6_port))), flags);
 		}
-		delete[] ip_addr_dst;
 	}
 }
 

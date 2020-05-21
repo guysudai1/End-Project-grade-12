@@ -58,12 +58,6 @@
      <height>21</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuFile">
-    <property name="title">
-     <string>Directory</string>
-    </property>
-    <addaction name="actionSelect_Directory"/>
-   </widget>
    <widget class="QMenu" name="menuProcess">
     <property name="title">
      <string>Process</string>
@@ -78,7 +72,6 @@
     <addaction name="actionExit"/>
    </widget>
    <addaction name="menuFile_2"/>
-   <addaction name="menuFile"/>
    <addaction name="menuProcess"/>
   </widget>
   <action name="actionLaunch">
