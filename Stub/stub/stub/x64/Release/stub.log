@@ -1,0 +1,8 @@
+﻿  stub.cpp
+c:\users\guy\source\repos\process-monitor-felix-\stub\stub\stub\stub.cpp(93): warning C4267: 'argument': conversion from 'size_t' to 'DWORD', possible loss of data
+  Generating code
+  1 of 163 functions ( 0.6%) were compiled, the rest were copied from previous compilation.
+    0 functions were new in current compilation
+    1 functions had inline decision re-evaluated but remain unchanged
+  Finished generating code
+  stub.vcxproj -> C:\Users\GUY\source\repos\Process-Monitor-FELIX-\Stub\stub\x64\Release\stub.exe

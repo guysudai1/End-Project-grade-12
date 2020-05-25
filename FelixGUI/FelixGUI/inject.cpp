@@ -36,9 +36,9 @@ VOID Injector::start_process()
     si.cb = sizeof(si);
     ZeroMemory(&pi, sizeof(pi));
 
-	std::wstring app_str = (std::wstring(STUB_NAME) + L"\"" + application_name + L"\"");
+	std::wstring app_str =  (std::wstring(STUB_NAME) + L" \"" + application_name + L"\"");
     // Start stub program
-	INT err = CreateProcess(STUB_NAME,   // Path to stub
+	INT err = CreateProcess(NULL,   // Path to stub
 		(LPWSTR)app_str.c_str(),        // Command line (desired program to launch)
 		NULL,           // Process handle not inheritable
 		NULL,           // Thread handle not inheritable
@@ -158,9 +158,10 @@ BOOL Injector::launch_process()
 				// 1 Pipe max read.
 				connected = true;
 			}
+
+			DisconnectNamedPipe(hPipe);
 		}
 
-		DisconnectNamedPipe(hPipe);
 	}
 
 	CloseHandle(hPipe);
@@ -198,6 +199,7 @@ void Injector::inject_to_process(DWORD pid, std::wstring dllpath)
         return;
 	}
 
+	// MessageBoxW(NULL, dllpath.c_str(), L"Injecting to", MB_ICONINFORMATION);
     // Allocate executable|writable memory area in desired process
     hBase = VirtualAllocEx(hProc,           // proc handler
                            NULL,            // Let the function decide where the memory will be

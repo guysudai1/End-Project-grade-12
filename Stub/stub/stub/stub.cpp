@@ -12,7 +12,6 @@ PROCESS_INFORMATION pi;
 
 PROCESS_INFORMATION* StartProcess(std::wstring application_name)
 {
-	// TODO: Add support for arguments
 	STARTUPINFO si;
 
 	ZeroMemory(&si, sizeof(si));
@@ -20,8 +19,8 @@ PROCESS_INFORMATION* StartProcess(std::wstring application_name)
 	ZeroMemory(&pi, sizeof(pi));
 
 	// Start desired process
-	if (!CreateProcess(application_name.c_str(),   // Executable path
-		NULL,				// Command line
+	if (!CreateProcessW(NULL,   // Executable path
+		(LPWSTR)application_name.c_str(),				// Command line
 		NULL,				// Process handle not inheritable
 		NULL,				// Thread handle not inheritable
 		FALSE,				// Set handle inheritance to FALSE
@@ -49,6 +48,7 @@ int main(int argc, char* argv[])
 	HANDLE hPipe;
 	std::string result_str;
 
+
 	filePath = std::wstring(GetCommandLineW());
 	first_index = filePath.find_first_of(L'"');
 	second_index = filePath.find_first_of(L'"', first_index + 1);
@@ -58,9 +58,8 @@ int main(int argc, char* argv[])
 		MessageBoxW(NULL, filePath.substr(first_index + 1, second_index - first_index - 1).c_str(), L"Could not start process", MB_ICONERROR);
 		return -1;
 	}
-
 	// Loop until pipe server is connected
-	while (1)
+	while (true)
 	{
 		hPipe = CreateFileA(
 			CHILD_PID_PIPENAME,   // pipe name   	
@@ -84,7 +83,6 @@ int main(int argc, char* argv[])
 		}
 
 		// Wait 5 seconds to check if a pipe server has been started
-		WaitNamedPipeA(CHILD_PID_PIPENAME, 5000);
 	}
 
 	// Generate format "{PID}-{TID}"

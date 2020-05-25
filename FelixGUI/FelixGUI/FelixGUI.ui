@@ -63,7 +63,6 @@
      <string>Process</string>
     </property>
     <addaction name="actionLaunch"/>
-    <addaction name="actionExisting_Process"/>
    </widget>
    <widget class="QMenu" name="menuFile_2">
     <property name="title">

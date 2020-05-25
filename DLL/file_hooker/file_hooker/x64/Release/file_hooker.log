@@ -1,11 +1,9 @@
 ﻿  dllmain.cpp
 c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\framework.h(31): warning C4200: nonstandard extension used: zero-sized array in struct/union
   c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\framework.h(31): note: This member will be ignored by a defaulted constructor or copy/move assignment operator
-c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\dllmain.cpp(158): warning C4267: '=': conversion from 'size_t' to 'DWORD', possible loss of data
-c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\dllmain.cpp(203): warning C4267: '=': conversion from 'size_t' to 'USHORT', possible loss of data
+c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\dllmain.cpp(203): warning C4267: '=': conversion from 'size_t' to 'DWORD', possible loss of data
+c:\users\guy\source\repos\process-monitor-felix-\dll\file_hooker\file_hooker\dllmain.cpp(235): warning C4267: '=': conversion from 'size_t' to 'USHORT', possible loss of data
   Generating code
-  2 of 147 functions ( 1.4%) were compiled, the rest were copied from previous compilation.
-    0 functions were new in current compilation
-    0 functions had inline decision re-evaluated but remain unchanged
+  All 199 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
   Finished generating code
   file_hooker.vcxproj -> C:\Users\GUY\Source\Repos\Process-Monitor-FELIX-\DLL\file_hooker\x64\Release\file_hooker.dll

@@ -3,20 +3,57 @@
 #include <detours.h>
 #include <string>
 
+// std::search
+#include <algorithm>
+#include <locale>
+
 #define UNICODE 1
 
 #ifndef NT_SUCCESS
 #define NT_SUCCESS(Status) ((NTSTATUS)(Status) >= 0)
 #endif
 
+static HANDLE thread_apc = NULL;
+
+static VOID CALLBACK apc_proc_run(ULONG_PTR dwParam)
+{
+	// APC Proc to send info to host process
+
+	pair_alloc* pair_param = reinterpret_cast<pair_alloc*>(dwParam);
+	std::wstring info_thing = std::wstring(pair_param->pInfo);
+	auto icompare = [](wchar_t const &c1, wchar_t const &c2)
+	{
+		return std::tolower(c1, std::locale()) == std::tolower(c2, std::locale());
+	};
+	std::wstring windows = L":\\WINDOWS\\";
+
+	// Test for non-important strings
+	if (std::search(info_thing.begin(), info_thing.end(), windows.begin(), windows.end(), icompare) == info_thing.end() &&
+		info_thing.compare(L"\\??\\MountPointManager") != 0 &&
+		info_thing.compare(L"") != 0 )
+		ReportToMainHost(info_thing, pair_param->flags);
+
+	// Check if need to release memory
+	if (info_thing.compare(L"") != 0)
+		delete[] pair_param->pInfo;
+	delete[] pair_param;
+}
+
+VOID send_to_main_process(LPARAM param) {
+	// Thread in alertable state for apc queue
+	while (true) {
+		SleepEx(10000, TRUE);
+	}
+}
 
 BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReserved)
 {
-    HANDLE hSemaphore;
+    HANDLE hSemaphore, hThread;
 	HMODULE ntdll, ws2dll;
     switch (ul_reason_for_call)
     {
         case DLL_PROCESS_ATTACH:
+			
 			// Acquire symbols at runtime
 			ntdll			=					LoadLibraryA("ntdll.dll");
 			PPNtCreateFile	= (pNtCreateFile)	GetProcAddress(ntdll, "NtCreateFile");
@@ -35,53 +72,61 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
 			pNtohs			= (pntohs)			GetProcAddress(ws2dll, "ntohs");
 			PPWSGetPeerName	= (pGetpeername)	GetProcAddress(ws2dll, "getpeername");
 
+			hThread = CreateRemoteThread(GetCurrentProcess(),
+				NULL, 0,
+				(LPTHREAD_START_ROUTINE)send_to_main_process, NULL,
+				NULL, NULL);
+			if (hThread == NULL) {
+				MessageBoxW(NULL, L"Could not start thread", L"error", MB_ICONERROR);
+			}
+			thread_apc = hThread;
 
             hSemaphore = OpenSemaphoreA(SYNCHRONIZE | // Security attributes (enables a thread to wait until the object is in the signaled state)
                                          SEMAPHORE_MODIFY_STATE, // required for the ReleaseSemaphore function
                                          FALSE,        // all children don't inherit handler
                                          WAIT_DLL_SEMAPHORE_NAME); // Semaphore name
+			if (hThread) {
+				if (DetourTransactionBegin() != NO_ERROR) {
+					MessageBoxA(NULL, "Could not begin trasncation", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourUpdateThread(GetCurrentThread()) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not update current thread", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
 
-            if (DetourTransactionBegin() != NO_ERROR) {
-                MessageBoxA(NULL, "Could not begin trasncation", "Failed", MB_ICONINFORMATION);
-                return FALSE;
-            }
-            if (DetourUpdateThread(GetCurrentThread()) != NO_ERROR) {
-                MessageBoxA(NULL, "Could not update current thread", "Failed", MB_ICONINFORMATION);
-                return FALSE;
-            }
-			
-			/* 
-				HOOK FUNCTIONS 
-			*/
+				/*
+					HOOK FUNCTIONS
+				*/
 
-            if (DetourAttach(&(PVOID&)PPNtCreateFile, myNtCreateFile) != NO_ERROR) {
-                MessageBoxA(NULL, "Could not attach CreateFileA", "Failed", MB_ICONINFORMATION);
-                return FALSE;
-            }
-            if (DetourAttach(&(PVOID&)PPNtOpenFile, myNtOpenFile) != NO_ERROR) {
-                MessageBoxA(NULL, "Could not attach OpenFileA", "Failed", MB_ICONINFORMATION);
-                return FALSE;
-            }
-			if (DetourAttach(&(PVOID&)PPNtWriteFile, myNtWriteFile) != NO_ERROR) {
-				MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
-				return FALSE;
-			}
-			if (DetourAttach(&(PVOID&)PPNtReadFile, myNtReadFile) != NO_ERROR) {
-				MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
-				return FALSE;
-			}
-			if (DetourAttach(&(PVOID&)PPWSConnect, myConnect) != NO_ERROR) {
-				MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
-				return FALSE;
-			}
-			if (DetourAttach(&(PVOID&)PPWSSend, mySend) != NO_ERROR) {
-				MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
-				return FALSE;
-			}
+				if (DetourAttach(&(PVOID&)PPNtCreateFile, myNtCreateFile) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not attach CreateFileA", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourAttach(&(PVOID&)PPNtOpenFile, myNtOpenFile) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not attach OpenFileA", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourAttach(&(PVOID&)PPNtWriteFile, myNtWriteFile) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourAttach(&(PVOID&)PPNtReadFile, myNtReadFile) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourAttach(&(PVOID&)PPWSConnect, myConnect) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
+				if (DetourAttach(&(PVOID&)PPWSSend, mySend) != NO_ERROR) {
+					MessageBoxA(NULL, "Could not detach NtOpenFile", "Failed", MB_ICONINFORMATION);
+					return FALSE;
+				}
 
-            if (DetourTransactionCommit() != NO_ERROR)
-                MessageBoxA(NULL, "Could not add detour function!", "Error", MB_ICONERROR);
-
+				if (DetourTransactionCommit() != NO_ERROR)
+					MessageBoxA(NULL, "Could not add detour function!", "Error", MB_ICONERROR);
+			}
 
             if (hSemaphore != NULL) {
                 if (!ReleaseSemaphore(hSemaphore, 1, NULL)) {
@@ -95,6 +140,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
         case DLL_THREAD_DETACH:
             break;
         case DLL_PROCESS_DETACH:
+			// Report program close
             ReportToMainHost(std::wstring(L"Close"), 1);
             if (DetourTransactionBegin() != NO_ERROR) {
                 MessageBoxA(NULL, "Could not begin transcation", "Failed", MB_ICONINFORMATION);
@@ -135,7 +181,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD ul_reason_for_call, LPVOID lpReser
 
             if (DetourTransactionCommit() != NO_ERROR)
                 MessageBoxA(NULL, "Could not remove detour function!", "Error", MB_ICONERROR);   
-
+			CloseHandle(thread_apc);
             break;
     }
     return TRUE;
@@ -153,23 +199,8 @@ void ReportToMainHost(std::wstring content, DWORD flags)
 
 	wchar_t* full_path;
 	DWORD length;
-	if (flags == NETWORK_CONNECT || flags == NETWORK_SEND || flags == NETWORK_RECV) {
-		full_path = const_cast<wchar_t*>(content.c_str());
-		length = content.size();
-	}
-	else {
-		/*
-			Get full file access path
-		*/
-
-		wchar_t path_arr[MAX_PATH + 1];
-		memset(path_arr, 0, (MAX_PATH + 1) * sizeof(wchar_t));
-		length = GetFullPathNameW(content.c_str(), MAX_PATH, path_arr, NULL);
-		if (length == NULL) {
-			return;
-		}
-		full_path = path_arr;
-	}
+	full_path = const_cast<wchar_t*>(content.c_str());
+	length = content.size();
 	
 
     DWORD procInfoSize = sizeof(ProcInfoRecv) + (length + 1)* sizeof(wchar_t) ;
@@ -258,8 +289,15 @@ NTSTATUS (NTAPI myNtCreateFile) (OUT PHANDLE FileHandle, IN ACCESS_MASK DesiredA
 	*/
 
 	// Acquire desired access path from OBJECT_ATTRIBUTES struct
-    std::wstring full_string = std::wstring(ObjectAttributes->ObjectName->Buffer, ObjectAttributes->ObjectName->Length);
-    ReportToMainHost(full_string, REPORT_OPEN);
+	wchar_t* full_name = new wchar_t[ObjectAttributes->ObjectName->Length / sizeof(wchar_t) + 1];
+	memset(full_name, 0, ObjectAttributes->ObjectName->Length + sizeof(wchar_t));
+	memcpy(full_name, ObjectAttributes->ObjectName->Buffer, ObjectAttributes->ObjectName->Length);
+
+	pair_alloc* pair = new pair_alloc;
+	pair->pInfo = full_name;
+	pair->flags = REPORT_OPEN;
+
+	QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR) pair);
     return PPNtCreateFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, AllocationSize, FileAttributes, ShareAccess, CreateDisposition, CreateOptions, EaBuffer, EaLength);
 }
 
@@ -270,8 +308,16 @@ NTSTATUS (NTAPI myNtOpenFile) (OUT PHANDLE FileHandle, IN ACCESS_MASK DesiredAcc
 	*/
 
 	// Acquire desired access path from OBJECT_ATTRIBUTES struct
-	std::wstring full_string = std::wstring(ObjectAttributes->ObjectName->Buffer, ObjectAttributes->ObjectName->Length);
-	ReportToMainHost(full_string, REPORT_OPEN);
+	wchar_t* full_name = new wchar_t[ObjectAttributes->ObjectName->Length / sizeof(wchar_t) + 1];
+	memset(full_name, 0, ObjectAttributes->ObjectName->Length + sizeof(wchar_t));
+	memcpy(full_name, ObjectAttributes->ObjectName->Buffer, ObjectAttributes->ObjectName->Length);
+
+	pair_alloc* pair = new pair_alloc;
+	pair->pInfo = full_name;
+	pair->flags = REPORT_OPEN;
+
+	QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR)pair);
+
 	return PPNtOpenFile(FileHandle, DesiredAccess, ObjectAttributes, IoStatusBlock, ShareAccess, OpenOptions);
 }
 
@@ -281,18 +327,22 @@ NTSTATUS (NTAPI myNtWriteFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE
 		hook for NtWriteFile() function
 	*/
 
-	wchar_t pathName[MAX_PATH + 1];
+	wchar_t* pathName = new wchar_t[MAX_PATH + 1];
 	memset(pathName, 0, MAX_PATH + 1);
 	
 	// Acquire full path from handle
-	if (GetFinalPathNameByHandleW(FileHandle, pathName, sizeof(wchar_t) * (MAX_PATH + 1), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) == ERROR_PATH_NOT_FOUND) {
+	if (GetFinalPathNameByHandleW(FileHandle, pathName, sizeof(wchar_t) * (MAX_PATH + 1), FILE_NAME_OPENED | VOLUME_NAME_NONE) == ERROR_PATH_NOT_FOUND) {
 		// Couldn't acquire path name from handle
-		delete[] pathName;
 		return PPNtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 	}
 
-	std::wstring full_string = std::wstring(pathName);
-	ReportToMainHost(full_string, FILE_WRITE);
+	// Acquire desired access path from OBJECT_ATTRIBUTES struct
+
+	pair_alloc* pair = new pair_alloc;
+	pair->pInfo = pathName;
+	pair->flags = FILE_WRITE;
+
+	QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR)pair);
 
 	return PPNtWriteFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 }
@@ -303,16 +353,22 @@ NTSTATUS(NTAPI myNtReadFile) (HANDLE FileHandle, HANDLE Event, PIO_APC_ROUTINE A
 		hook for NtReadFile() function
 	*/
 
-	wchar_t pathName[MAX_PATH + 1];
+	wchar_t* pathName = new wchar_t[MAX_PATH + 1];
 	memset(pathName, 0, MAX_PATH + 1);
+
 	// Acquire full path from handle
-	if (GetFinalPathNameByHandleW(FileHandle, pathName, sizeof(wchar_t) * (MAX_PATH + 1), FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) == ERROR_PATH_NOT_FOUND) {
+	if (GetFinalPathNameByHandleW(FileHandle, pathName, sizeof(wchar_t) * (MAX_PATH + 1), FILE_NAME_OPENED | VOLUME_NAME_NONE) == ERROR_PATH_NOT_FOUND) {
 		// Couldn't acquire path name from handle
-		delete[] pathName;
-		return PPNtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
+		return myNtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 	}
-	std::wstring full_string = std::wstring(pathName);
-	ReportToMainHost(full_string, FILE_READ);
+
+	// Acquire desired access path from OBJECT_ATTRIBUTES struct
+
+	pair_alloc* pair = new pair_alloc;
+	pair->pInfo = pathName;
+	pair->flags = FILE_READ;
+
+	QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR)pair);
 
 	return PPNtReadFile(FileHandle, Event, ApcRoutine, ApcContext, IoStatusBlock, Buffer, Length, ByteOffset, Key);
 }
@@ -331,7 +387,17 @@ void send_host_sock_info(const sockaddr* name, DWORD flags) {
 
 		if (PPWSInetNtop(info->sin_family, &info->sin_addr, ip_addr_dst, 16) != NULL) {
 			// Generate <ip>:<port> wstring
-			ReportToMainHost(std::wstring(ip_addr_dst).append(L":").append(std::to_wstring(pNtohs(info->sin_port))), flags);
+			wchar_t* ip_str = new wchar_t[16 + 1 + 5 + 1];
+			memset(ip_str, 0, 16 + 1 + 5 + 1);
+			lstrcat(ip_str, ip_addr_dst);
+			lstrcat(ip_str, L":");
+			lstrcat(ip_str, std::to_wstring(pNtohs(info->sin_port)).c_str());
+
+			pair_alloc* pair = new pair_alloc;
+			pair->pInfo = ip_str;
+			pair->flags = flags;
+
+			QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR)pair);
 		}
 	}
 	else if (name->sa_family == AF_INET6) {
@@ -343,7 +409,17 @@ void send_host_sock_info(const sockaddr* name, DWORD flags) {
 
 		if (PPWSInetNtop(info->sin6_family, &info->sin6_addr, ip_addr_dst, 46) != NULL) {
 			// Generate <ip>:<port> wstring
-			ReportToMainHost(std::wstring(ip_addr_dst).append(L":").append(std::to_wstring(pNtohs(info->sin6_port))), flags);
+			wchar_t* ip_str = new wchar_t[46 + 1 + 5 + 1];
+			memset(ip_str, 0, 46 + 1 + 5 + 1);
+			lstrcat(ip_str, ip_addr_dst);
+			lstrcat(ip_str, L":");
+			lstrcat(ip_str, std::to_wstring(pNtohs(info->sin6_port)).c_str());
+
+			pair_alloc* pair = new pair_alloc;
+			pair->pInfo = ip_str;
+			pair->flags = flags;
+
+			QueueUserAPC(apc_proc_run, thread_apc, (ULONG_PTR)pair);
 		}
 	}
 }

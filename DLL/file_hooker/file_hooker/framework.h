@@ -31,6 +31,11 @@ typedef struct _procInfoRecv {
 	wchar_t procName[];
 } ProcInfoRecv, *PProcInfoRecv;
 
+typedef struct _pair_alloc {
+	wchar_t* pInfo;
+	DWORD flags;
+} pair_alloc, *PPair_alloc;
+
 #define SEND_PROCESS_INFORMATION L"\\??\\pipe\\procInfoPipe"
 #define WAIT_DLL_SEMAPHORE_NAME  "resume_thread_dllinjected"
 

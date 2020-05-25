@@ -43,6 +43,7 @@
 #define NETWORK_SEND	0x6
 #define NETWORK_RECV	0x7
 
+#define APPLICATION_ICON "Resources/Icons/rabbit.png"
 #define HOME_ICON_PATH "Resources/Icons/home.png"
 #define PROCESS_ICON_PATH "Resources/Icons/process.png"
 #define PID_ICON_PATH "Resources/Icons/pid.png"
@@ -83,6 +84,7 @@ FelixGUI::FelixGUI(QWidget *parent)
 	QObject::connect(this, SIGNAL(addToTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)),
 			this, SLOT(addToProcTable(unsigned int, const wchar_t*, const char*, wchar_t*, unsigned int)));
 
+	
 	// Tabs widget
 	QTabWidget* tabs = new QTabWidget(ui.centralWidget);
 	tabs->move(0, 0);
@@ -184,20 +186,19 @@ void FelixGUI::on_action_launch()
 	// Check if not selected
 	if (path.empty())
 		return;
-
 	Injector* inject = new Injector(path);
 	// Named pipe for getting the process PID 
+
 	inject->launch_process();
 
 	this->actions.pid = inject->get_pid();
-
 	std::wstring shortProcName = std::wstring(path);
 	size_t last_index = shortProcName.find_last_of(L"\\");
 	shortProcName = shortProcName.substr(last_index + 1, shortProcName.size() - last_index - 1);
 	this->actions.procName = QString::fromStdWString(shortProcName);
-
-	this->tabs->addTab(generate_newtab(), this->actions.procName);
 	inject->wait_for_injection_and_resume();
+	this->tabs->addTab(generate_newtab(), this->actions.procName);
+
 
 }
 
@@ -410,7 +411,6 @@ void FelixGUI::handleContextMenu(const QPoint& pos) {
 }
 
 void FelixGUI::addToProcTable(unsigned int index, const wchar_t* path, const char* mode, wchar_t* time, unsigned int isFile) {
-
 	QTableWidget* current_proc_table = this->actions.processes[index].second;
 	if (isFile == CLOSE_PROCESS)
 		this->actions.processes.erase(this->actions.processes.begin() + index);
@@ -422,6 +422,8 @@ void FelixGUI::addToProcTable(unsigned int index, const wchar_t* path, const cha
 		if (current_proc_table->item(i, 0)->text() == " ")
 			break;
 	}
+	if (i == last_row)
+		return;
 	// Path / Network path
 	if (isFile == FILE_MODE || isFile == NETWORK_MODE)
 		current_proc_table->setItem(i, 0, new QTableWidgetItem(QString::fromWCharArray(path)));
@@ -498,6 +500,7 @@ void FelixGUI::recv_proc_info() {
 			memset(time, 0, 13);
 			swprintf(time, L"%02d:%02d:%02d.%03d", currentTime->wHour, currentTime->wMinute, currentTime->wSecond, currentTime->wMilliseconds);
 			delete[] currentTime;
+
 			if (process->flags == CLOSED_PROCESS) {
 				// Process closed
 				emit addToTable(index, procPath, "Closed", time, CLOSE_PROCESS);
@@ -529,9 +532,11 @@ void FelixGUI::recv_proc_info() {
 			// delete[] time;
 			// MessageBoxW(NULL, std::wstring(process->procName, process->procNameSize).c_str(), L"Got that process", MB_ICONINFORMATION);
 			// FlushFileBuffers(hPipeServer);
+			Sleep(50);
 			DisconnectNamedPipe(hPipeServer);
 			// CloseHandle(hPipeServer);
 		}
+		
 	}
 
 	CloseHandle(hPipeServer);

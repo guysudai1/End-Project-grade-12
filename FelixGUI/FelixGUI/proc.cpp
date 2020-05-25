@@ -74,19 +74,18 @@ HMODULE* get_proc_modules(HANDLE hProc, DWORD* size) {
 	HMODULE* procs;
 	DWORD bytesReturned;
 	DWORD current_mem = MAX_PROCS_INIT;
+	int error;
 	do {
 		procs = new HMODULE[current_mem];
-		if (EnumProcessModules(hProc, procs, current_mem * sizeof(DWORD), &bytesReturned) == 0) {
-			// MessageBoxA(NULL, std::to_string(GetLastError()).c_str(), "Error: get_procs_modules", MB_ICONERROR);
-		}
-		if (bytesReturned / sizeof(DWORD) == current_mem) {
+		if (EnumProcessModules(hProc, procs, current_mem * sizeof(HMODULE), &bytesReturned) == 0) {	}
+		if (bytesReturned / sizeof(HMODULE) == current_mem) {
 			current_mem *= 2;
 			delete[] procs;
 			procs = nullptr;
 		}
 		else { break; }
 	} while (true);
-	*size = bytesReturned / sizeof(DWORD);
+	*size = bytesReturned / sizeof(HMODULE);
 	return procs;
 }
 
@@ -135,14 +134,15 @@ BOOL get_proc_bitness(DWORD pid) {
 std::wstring get_all_dependencies(HANDLE hProc) {
 
 	/* Acquire process dependencies */
-	DWORD moduleSize;
-	HMODULE* procModules = get_proc_modules(hProc, &moduleSize);
+	DWORD* moduleSize = new DWORD;
+	HMODULE* procModules = get_proc_modules(hProc, moduleSize);
 	std::wstring procDependencies;
 
 	/* Process dependencies to wstring (concat with "; ") */
 
-	for (int j = 0; j < moduleSize; j++) {
-		wchar_t* tempProcName = new wchar_t[MAX_PATH];
+	for (int j = 0; j < *moduleSize; j++) {
+		wchar_t* tempProcName = new wchar_t[MAX_PATH + 1];
+		memset(tempProcName, 0, sizeof(wchar_t) * (MAX_PATH + 1));
 		if (GetModuleBaseNameW(hProc, procModules[j], tempProcName, MAX_PATH) != 0) {
 			procDependencies.append(tempProcName);
 			procDependencies.append(L"\n");
