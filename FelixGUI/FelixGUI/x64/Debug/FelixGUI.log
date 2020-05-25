@@ -1,3 +1,0 @@
-﻿  proc.cpp
-c:\users\guy\source\repos\process-monitor-felix-\felixgui\felixgui\proc.cpp(27): warning C4312: 'type cast': conversion from 'DWORD' to 'HICON' of greater size
-  FelixGUI.vcxproj -> C:\Users\GUY\source\repos\Process-Monitor-FELIX-\FelixGUI\x64\Debug\FelixGUI.exe
