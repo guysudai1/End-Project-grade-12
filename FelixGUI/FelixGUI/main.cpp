@@ -3,8 +3,11 @@
 
 int main(int argc, char *argv[])
 {
-	QApplication a(argc, argv);
-	FelixGUI w;
-	w.show();
-	return a.exec();
+	QApplication app(argc, argv);
+	QIcon appIcon;
+	appIcon.addFile(":/FelixGUI/rabbit");
+	FelixGUI window;
+	window.setWindowIcon(appIcon);
+	window.show();
+	return app.exec();
 }

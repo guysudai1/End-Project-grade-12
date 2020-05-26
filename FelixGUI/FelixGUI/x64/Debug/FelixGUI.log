@@ -1,0 +1,16 @@
+﻿  Reading Qt configuration (D:\qt\5.9.9\msvc2017_64\bin\qmake.exe)
+  uic FelixGUI.ui
+  rcc FelixGUI.qrc
+  moc FelixGUI.h
+  FelixGUI.cpp
+  graphics.cpp
+  hashmap.cpp
+  hooking.cpp
+  icon_functions.cpp
+  inject.cpp
+  main.cpp
+  proc.cpp
+c:\users\guy\source\repos\modified\felixgui\felixgui\proc.cpp(27): warning C4312: 'type cast': conversion from 'DWORD' to 'HICON' of greater size
+  qrc_FelixGUI.cpp
+  moc_FelixGUI.cpp
+  FelixGUI.vcxproj -> C:\Users\GUY\source\repos\modified\FelixGUI\x64\Debug\FelixGUI.exe

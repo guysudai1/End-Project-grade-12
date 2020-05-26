@@ -25,6 +25,10 @@
   <property name="windowTitle">
    <string>Felix</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>rabbit.ico</normaloff>rabbit.ico</iconset>
+  </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QLabel" name="label">
     <property name="geometry">

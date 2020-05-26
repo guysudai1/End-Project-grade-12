@@ -1,4 +1,5 @@
 <RCC>
-    <qresource prefix="FelixGUI">
+    <qresource prefix="/FelixGUI">
+        <file alias="rabbit">rabbit.ico</file>
     </qresource>
 </RCC>
