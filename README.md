@@ -16,6 +16,13 @@ This entire project was written in C++ using QT, MS Detours and with the help of
 ##### Stub to execute desired process
 - Stub/
 
+# Usage
+1. Clone the repository:
+```
+git clone https://github.com/guysudai1/Process-Monitor-FELIX-
+```
+2. Go into the `Build` Folder and execute FelixGUI.exe
+
 ## Credits:
 I would like to thank the following people for finding the time to help me out:
 - מגנום
