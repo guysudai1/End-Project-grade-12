@@ -2,6 +2,7 @@
 ### File Events Logging, Intercepting, and Examining
 
 This entire project was written in C++ using QT, MS Detours and with the help of some people.  
+This project can be used to track processes, and presents basic information about events happening in the target process.
 ## Directory structure:
 
 ##### Prebuilt binaries + dll for x64. Comes with an example to run (pauses -> executes createfilea -> pauses) 
